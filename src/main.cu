@@ -280,8 +280,8 @@ int main(int argc, const char** argv) {
 #ifdef VISUALISATION
     Experiment smallPopBruteForce("sub_model", 256, 256, 64, 1, 0);
 #else
-    Experiment smallPopBruteForce("sub_model", 64, 256, 64, 2, BENCHMARK_STEPS);
-    // Experiment smallPopBruteForce("sub_model", 64, 4096, 64, 20, BENCHMARK_STEPS);
+     // Experiment smallPopBruteForce("sub_model", 64, 256, 64, 2, BENCHMARK_STEPS);
+     Experiment smallPopBruteForce("sub_model", 64, 4096, 64, 50, BENCHMARK_STEPS);
 #endif
 
     std::vector<Experiment> experiments = { smallPopBruteForce };
