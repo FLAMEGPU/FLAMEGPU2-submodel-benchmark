@@ -28,7 +28,15 @@
 // Visualisation mode (0=occupied/move status, 1=occupied/sugar/level)
 #define VIS_MODE 1
 
-#define BENCHMARK_STEPS 1000
+#define BENCHMARK_STEPS 100
+
+typedef struct HistExitCondition {
+    double cumulative_time;
+    unsigned int samples;
+} HistExitCondition;
+
+// Counter for number of iterations required to resolve conflicting movements
+unsigned int exit_condition_iterations = 0;
 
 
 FLAMEGPU_AGENT_FUNCTION(metabolise_and_growback, flamegpu::MessageNone, flamegpu::MessageNone) {
@@ -200,21 +208,25 @@ FLAMEGPU_AGENT_FUNCTION(movement_transaction, flamegpu::MessageArray2D, flamegpu
 
     return flamegpu::ALIVE;
 }
+
+
 FLAMEGPU_EXIT_CONDITION(MovementExitCondition) {
-    static unsigned int iterations = 0;
-    iterations++;
+    // static unsigned int exit_condition_iterations = 0;
+    exit_condition_iterations++;
 
     // Max iterations 9
-    if (iterations < 9) {
+    if (exit_condition_iterations < 9) {
         // Agent movements still unresolved
         if (FLAMEGPU->agent("agent").count("status", AGENT_STATUS_MOVEMENT_UNRESOLVED)) {
             return flamegpu::CONTINUE;
         }
     }
 
-    iterations = 0;
+    // exit_condition_iterations = 0;
     return flamegpu::EXIT;
 }
+
+
 /**
  * Construct the common components of agent shared between both parent and submodel
  */
@@ -261,37 +273,50 @@ typedef struct Experiment {
     Experiment(std::string title,
         unsigned int initialGridWidth, unsigned int finalGridWidth, unsigned int gridWidthIncrement,
         unsigned int repetitions,
-        unsigned int steps) {
+        unsigned int steps,
+        bool histogram) {
         this->title = title;
         this->initialGridWidth = initialGridWidth;
         this->finalGridWidth = finalGridWidth;
         this->gridWidthIncrement = gridWidthIncrement;
         this->repetitions = repetitions;
         this->steps = steps;
+        this->histogram = histogram;
     }
     std::string title;
     unsigned int initialGridWidth, finalGridWidth, gridWidthIncrement;
     unsigned int repetitions;
     unsigned int steps;
+    bool histogram;
 } Experiment;
 
+
 int main(int argc, const char** argv) {
+    std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment smallPopBruteForce("sub_model", 256, 256, 64, 1, 0);
+    Experiment visualisationExperiment("sub_model", 256, 256, 64, 1, 0, false);
+    experiments.push_back(visualisationExperiment);
 #else
-     // Experiment smallPopBruteForce("sub_model", 64, 256, 64, 2, BENCHMARK_STEPS);
-     Experiment smallPopBruteForce("sub_model", 64, 4096, 64, 50, BENCHMARK_STEPS);
+    // Performacne sclaing experiment to recoprd performance with increase in model size
+    Experiment performance_scaling("performance_scaling", 64, 2048, 64, 2, BENCHMARK_STEPS, false);
+    experiments.push_back(performance_scaling);
+    // Histogram experiment to record average time required at each number of movement resoltuion steps within the sub model
+    Experiment resolution_steps("resolution_steps", 1024, 1024, 64, 1, BENCHMARK_STEPS, true);
+    experiments.push_back(resolution_steps);
 #endif
 
-    std::vector<Experiment> experiments = { smallPopBruteForce };
     for (Experiment experiment : experiments) {
         std::cout << std::endl << "Starting experiment: " << experiment.title << std::endl;
 
         // Pandas logging
         std::string csvFileName = experiment.title + ".csv";
         std::ofstream csv(csvFileName, std::ios::app);
-        csv << "repetition,grid_width,pop_size,ms_step_mean" << std::endl;
+        if (experiment.histogram) {
+            csv << "repetition,grid_width,pop_size,resolution_iterations,average_ms" << std::endl;
+        } else {
+            csv << "repetition,grid_width,pop_size,ms_step_mean" << std::endl;
+        }
 
         // number of repitions of experiment
         for (unsigned int repetition = 0; repetition < experiment.repetitions; repetition++) {
@@ -300,6 +325,14 @@ int main(int argc, const char** argv) {
                 unsigned int popSize = gridWidth * gridWidth;
 
                 std::cout << "Staring run with popSize: " << popSize << ", gridthWidth: " << gridWidth << std::endl;
+
+                // Initialise an empty histogram for logging time and occurances of steps required for resolution
+                std::array<HistExitCondition, 9> hist_resolution;
+                for (auto& h : hist_resolution) {
+                    h.cumulative_time = 0;
+                    h.samples = 0;
+                }
+
 
                 flamegpu::ModelDescription submodel("Movement_model");
                 {  // Define sub model for conflict resolution
@@ -418,7 +451,6 @@ int main(int argc, const char** argv) {
                     flamegpu::LayerDescription& layer = model.newLayer();
                     layer.addSubModel(movement_sub);
                 }
-                NVTX_POP();
 
                 /**
                  * Create Model Runner
@@ -461,6 +493,13 @@ int main(int argc, const char** argv) {
                  * Initialisation
                  */
                 cudaSimulation.initialise(argc, argv);
+                // set (override) the number of steps
+#ifdef VISUALISATION
+                cudaSimulation.SimulationConfig().steps = 0;
+#else
+                cudaSimulation.SimulationConfig().steps = BENCHMARK_STEPS;
+#endif
+
                 if (cudaSimulation.getSimulationConfig().input_file.empty()) {
                     std::default_random_engine rng;
                     // Pre init, decide the sugar hotspots
@@ -516,7 +555,7 @@ int main(int argc, const char** argv) {
                             }
                             // environment specific var
                             unsigned int env_sugar_lvl = 0;
-                            const int hotspot_core_size = 5.0f;
+                            const int hotspot_core_size = 5;
                             for (auto& hs : sugar_hotspots) {
                                 // Workout the highest sugar lvl from a nearby hotspot
                                 int hs_x = static_cast<int>(std::get<0>(hs));
@@ -543,14 +582,39 @@ int main(int argc, const char** argv) {
                 /**
                  * Execution
                  */
-                cudaSimulation.simulate();
 #ifdef VISUALISATION
+                cudaSimulation.simulate();
                 visualisation.join();
 #else
-                const auto runTime = cudaSimulation.getElapsedTimeSimulation();
-                const double averageStepTime = runTime / static_cast<float>(BENCHMARK_STEPS);
-                // log timings to csv (repetition,grid_width,pop_size,ms_step_mean)
-                csv << repetition << "," << gridWidth  << "," << popSize << "," << averageStepTime << std::endl;
+                // Simulate and log
+                if (experiment.histogram) {
+                    // Iterate for number of steps and update the histogram representing the timings for number of resolution steps required
+                    for (unsigned int i = 0; i < experiment.steps; i++) {
+                        exit_condition_iterations = 0;  // reset the counter used in the exit condition
+                        cudaSimulation.step();
+                        double step_time = cudaSimulation.getElapsedTimeStep(i);
+                        hist_resolution[exit_condition_iterations-1].cumulative_time += step_time;
+                        hist_resolution[exit_condition_iterations-1].samples++;
+                    }
+                    // Average the iterations times and log
+                    for (unsigned int i = 0; i < 9; i++) {
+                        auto& h = hist_resolution[i];
+                        double average_time = 0;
+                        if (h.samples)
+                            average_time = h.cumulative_time / h.samples;
+                        // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_ms)
+                        csv << repetition << "," << gridWidth << "," << popSize << "," << i+1 << "," << average_time << std::endl;
+                    }
+                } else {
+                    // Perform a benchmark simulation if not recording histograms
+                    cudaSimulation.simulate();
+
+                    // log total simulation time
+                    const auto runTime = cudaSimulation.getElapsedTimeSimulation();
+                    const double averageStepTime = runTime / static_cast<float>(BENCHMARK_STEPS);
+                    // log timings to csv (repetition,grid_width,pop_size,ms_step_mean)
+                    csv << repetition << "," << gridWidth << "," << popSize << "," << averageStepTime << std::endl;
+                }
 #endif
             }
         }
