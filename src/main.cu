@@ -271,20 +271,22 @@ bool hotspot_distance_check(const std::vector<std::array<unsigned int, 2>>& suga
 
 typedef struct Experiment {
     Experiment(std::string title,
-        unsigned int initialGridWidth, unsigned int finalGridWidth, unsigned int gridWidthIncrement,
+        unsigned int initialGridWidth, unsigned int finalGridWidth, unsigned int gridWidthIncrement, std::vector<float> p_occupations,
         unsigned int repetitions,
         unsigned int steps,
-        bool histogram) {
+        bool histogram ) {
         this->title = title;
         this->initialGridWidth = initialGridWidth;
         this->finalGridWidth = finalGridWidth;
         this->gridWidthIncrement = gridWidthIncrement;
+        this->p_occupations = p_occupations;
         this->repetitions = repetitions;
         this->steps = steps;
         this->histogram = histogram;
     }
     std::string title;
     unsigned int initialGridWidth, finalGridWidth, gridWidthIncrement;
+    std::vector<float> p_occupations;
     unsigned int repetitions;
     unsigned int steps;
     bool histogram;
@@ -295,94 +297,144 @@ int main(int argc, const char** argv) {
     std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment visualisationExperiment("sub_model", 256, 256, 64, 1, 0, false);
+    Experiment visualisationExperiment("sub_model", 256, 256, 64, std::vector<float>(PROBABILITY_OF_OCCUPATION), 1, 0, false);
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
-    Experiment performance_scaling("performance_scaling", 64, 2048, 64, 2, BENCHMARK_STEPS, false);
+    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>(PROBABILITY_OF_OCCUPATION), 10, BENCHMARK_STEPS, false);
     experiments.push_back(performance_scaling);
     // Histogram experiment to record average time required at each number of movement resoltuion steps within the sub model
-    Experiment resolution_steps("resolution_steps", 1024, 1024, 64, 1, BENCHMARK_STEPS, true);
-    experiments.push_back(resolution_steps);
+    // Experiment resolution_steps("resolution_steps", 1024, 1024, 64, std::vector<float>({0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f}), 1, 1, true);
+    // experiments.push_back(resolution_steps);
 #endif
 
     for (Experiment experiment : experiments) {
         std::cout << std::endl << "Starting experiment: " << experiment.title << std::endl;
 
         // Pandas logging
-        std::string csvFileName = experiment.title + ".csv";
+        std::string csvFileName = "./results/" + experiment.title + ".csv";
         std::ofstream csv(csvFileName, std::ios::app);
         if (experiment.histogram) {
-            csv << "repetition,grid_width,pop_size,resolution_iterations,average_ms" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,occurrences,average_ms" << std::endl;
         } else {
-            csv << "repetition,grid_width,pop_size,ms_step_mean" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,ms_step_mean" << std::endl;
         }
 
         // number of repitions of experiment
         for (unsigned int repetition = 0; repetition < experiment.repetitions; repetition++) {
             // increment grid width
             for (unsigned int gridWidth = experiment.initialGridWidth; gridWidth <= experiment.finalGridWidth; gridWidth += experiment.gridWidthIncrement) {
-                unsigned int popSize = gridWidth * gridWidth;
+                // increment probabiolity of occupations
+                for (float& pOccupation : experiment.p_occupations) {
+                    unsigned int popSize = gridWidth * gridWidth;
 
-                std::cout << "Staring run with popSize: " << popSize << ", gridthWidth: " << gridWidth << std::endl;
+                    std::cout << "Staring run with popSize: " << popSize << ", gridthWidth: " << gridWidth << " proabilityOccupation:" << pOccupation << std::endl;
 
-                // Initialise an empty histogram for logging time and occurances of steps required for resolution
-                std::array<HistExitCondition, 9> hist_resolution;
-                for (auto& h : hist_resolution) {
-                    h.cumulative_time = 0;
-                    h.samples = 0;
-                }
-
-
-                flamegpu::ModelDescription submodel("Movement_model");
-                {  // Define sub model for conflict resolution
-                    /**
-                     * Messages
-                     */
-                    {   // cell_status message
-                        flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("cell_status");
-                        message.newVariable<flamegpu::id_t>("location_id");
-                        message.newVariable<int>("status");
-                        message.newVariable<int>("env_sugar_level");
-                        message.setDimensions(gridWidth, gridWidth);
+                    // Initialise an empty histogram for logging time and occurances of steps required for resolution
+                    std::array<HistExitCondition, 9> hist_resolution;
+                    for (auto& h : hist_resolution) {
+                        h.cumulative_time = 0;
+                        h.samples = 0;
                     }
-                    {   // movement_request message
-                        flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("movement_request");
-                        message.newVariable<int>("agent_id");
-                        message.newVariable<flamegpu::id_t>("location_id");
-                        message.newVariable<int>("sugar_level");
-                        message.newVariable<int>("metabolism");
-                        message.setDimensions(gridWidth, gridWidth);
+
+
+                    flamegpu::ModelDescription submodel("Movement_model");
+                    {  // Define sub model for conflict resolution
+                        /**
+                         * Messages
+                         */
+                        {   // cell_status message
+                            flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("cell_status");
+                            message.newVariable<flamegpu::id_t>("location_id");
+                            message.newVariable<int>("status");
+                            message.newVariable<int>("env_sugar_level");
+                            message.setDimensions(gridWidth, gridWidth);
+                        }
+                        {   // movement_request message
+                            flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("movement_request");
+                            message.newVariable<int>("agent_id");
+                            message.newVariable<flamegpu::id_t>("location_id");
+                            message.newVariable<int>("sugar_level");
+                            message.newVariable<int>("metabolism");
+                            message.setDimensions(gridWidth, gridWidth);
+                        }
+                        {   // movement_response message
+                            flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("movement_response");
+                            message.newVariable<flamegpu::id_t>("location_id");
+                            message.newVariable<int>("agent_id");
+                            message.setDimensions(gridWidth, gridWidth);
+                        }
+                        /**
+                         * Agents
+                         */
+                        {
+                            flamegpu::AgentDescription& agent = makeCoreAgent(submodel);
+                            auto& fn_output_cell_status = agent.newFunction("output_cell_status", output_cell_status);
+                            {
+                                fn_output_cell_status.setMessageOutput("cell_status");
+                            }
+                            auto& fn_movement_request = agent.newFunction("movement_request", movement_request);
+                            {
+                                fn_movement_request.setMessageInput("cell_status");
+                                fn_movement_request.setMessageOutput("movement_request");
+                            }
+                            auto& fn_movement_response = agent.newFunction("movement_response", movement_response);
+                            {
+                                fn_movement_response.setMessageInput("movement_request");
+                                fn_movement_response.setMessageOutput("movement_response");
+                            }
+                            auto& fn_movement_transaction = agent.newFunction("movement_transaction", movement_transaction);
+                            {
+                                fn_movement_transaction.setMessageInput("movement_response");
+                            }
+                        }
+
+                        /**
+                         * Globals
+                         */
+                        {
+                            // flamegpu::EnvironmentDescription  &env = model.Environment();
+                        }
+
+                        /**
+                         * Control flow
+                         */
+                        {   // Layer #1
+                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            layer.addAgentFunction(output_cell_status);
+                        }
+                        {   // Layer #2
+                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            layer.addAgentFunction(movement_request);
+                        }
+                        {   // Layer #3
+                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            layer.addAgentFunction(movement_response);
+                        }
+                        {   // Layer #4
+                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            layer.addAgentFunction(movement_transaction);
+                        }
+                        submodel.addExitCondition(MovementExitCondition);
                     }
-                    {   // movement_response message
-                        flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("movement_response");
-                        message.newVariable<flamegpu::id_t>("location_id");
-                        message.newVariable<int>("agent_id");
-                        message.setDimensions(gridWidth, gridWidth);
-                    }
+
+                    flamegpu::ModelDescription model("Sugarscape_example");
+
                     /**
                      * Agents
                      */
+                    {   // Per cell agent
+                        flamegpu::AgentDescription& agent = makeCoreAgent(model);
+                        // Functions
+                        agent.newFunction("metabolise_and_growback", metabolise_and_growback);
+                    }
+
+                    /**
+                     * Submodels
+                     */
+                    flamegpu::SubModelDescription& movement_sub = model.newSubModel("movement_conflict_resolution_model", submodel);
                     {
-                        flamegpu::AgentDescription& agent = makeCoreAgent(submodel);
-                        auto& fn_output_cell_status = agent.newFunction("output_cell_status", output_cell_status);
-                        {
-                            fn_output_cell_status.setMessageOutput("cell_status");
-                        }
-                        auto& fn_movement_request = agent.newFunction("movement_request", movement_request);
-                        {
-                            fn_movement_request.setMessageInput("cell_status");
-                            fn_movement_request.setMessageOutput("movement_request");
-                        }
-                        auto& fn_movement_response = agent.newFunction("movement_response", movement_response);
-                        {
-                            fn_movement_response.setMessageInput("movement_request");
-                            fn_movement_response.setMessageOutput("movement_response");
-                        }
-                        auto& fn_movement_transaction = agent.newFunction("movement_transaction", movement_transaction);
-                        {
-                            fn_movement_transaction.setMessageInput("movement_response");
-                        }
+                        movement_sub.bindAgent("agent", "agent", true, true);
                     }
 
                     /**
@@ -396,226 +448,181 @@ int main(int argc, const char** argv) {
                      * Control flow
                      */
                     {   // Layer #1
-                        flamegpu::LayerDescription& layer = submodel.newLayer();
-                        layer.addAgentFunction(output_cell_status);
+                        flamegpu::LayerDescription& layer = model.newLayer();
+                        layer.addAgentFunction(metabolise_and_growback);
                     }
                     {   // Layer #2
-                        flamegpu::LayerDescription& layer = submodel.newLayer();
-                        layer.addAgentFunction(movement_request);
+                        flamegpu::LayerDescription& layer = model.newLayer();
+                        layer.addSubModel(movement_sub);
                     }
-                    {   // Layer #3
-                        flamegpu::LayerDescription& layer = submodel.newLayer();
-                        layer.addAgentFunction(movement_response);
-                    }
-                    {   // Layer #4
-                        flamegpu::LayerDescription& layer = submodel.newLayer();
-                        layer.addAgentFunction(movement_transaction);
-                    }
-                    submodel.addExitCondition(MovementExitCondition);
-                }
 
-                flamegpu::ModelDescription model("Sugarscape_example");
-
-                /**
-                 * Agents
-                 */
-                {   // Per cell agent
-                    flamegpu::AgentDescription& agent = makeCoreAgent(model);
-                    // Functions
-                    agent.newFunction("metabolise_and_growback", metabolise_and_growback);
-                }
-
-                /**
-                 * Submodels
-                 */
-                flamegpu::SubModelDescription& movement_sub = model.newSubModel("movement_conflict_resolution_model", submodel);
-                {
-                    movement_sub.bindAgent("agent", "agent", true, true);
-                }
-
-                /**
-                 * Globals
-                 */
-                {
-                    // flamegpu::EnvironmentDescription  &env = model.Environment();
-                }
-
-                /**
-                 * Control flow
-                 */
-                {   // Layer #1
-                    flamegpu::LayerDescription& layer = model.newLayer();
-                    layer.addAgentFunction(metabolise_and_growback);
-                }
-                {   // Layer #2
-                    flamegpu::LayerDescription& layer = model.newLayer();
-                    layer.addSubModel(movement_sub);
-                }
-
-                /**
-                 * Create Model Runner
-                 */
-                flamegpu::CUDASimulation  cudaSimulation(model);
+                    /**
+                     * Create Model Runner
+                     */
+                    flamegpu::CUDASimulation  cudaSimulation(model);
 
 
-                /**
-                 * Create visualisation
-                 * @note FLAMEGPU2 doesn't currently have proper support for discrete/2d visualisations
-                 */
+                    /**
+                     * Create visualisation
+                     * @note FLAMEGPU2 doesn't currently have proper support for discrete/2d visualisations
+                     */
 #ifdef VISUALISATION
-                flamegpu::visualiser::ModelVis& visualisation = cudaSimulation.getVisualisation();
-                {
-                    visualisation.setSimulationSpeed(2);
-                    visualisation.setInitialCameraLocation(gridWidth / 2.0f, gridWidth / 2.0f, 225.0f);
-                    visualisation.setInitialCameraTarget(gridWidth / 2.0f, gridWidth / 2.0f, 0.0f);
-                    visualisation.setCameraSpeed(0.001f * gridWidth);
-                    visualisation.setViewClips(0.1f, 5000);
-                    auto& agt = visualisation.addAgent("agent");
-                    // Position vars are named x, y, z; so they are used by default
-                    agt.setModel(flamegpu::visualiser::Stock::Models::CUBE);  // 5 unwanted faces!
-                    agt.setModelScale(1.0f);
-#if VIS_MODE == 0
-                    flamegpu::visualiser::DiscreteColor<int> cell_colors = flamegpu::visualiser::DiscreteColor<int>("status", flamegpu::visualiser::Color{ "#666" });
-                    cell_colors[AGENT_STATUS_UNOCCUPIED] = flamegpu::visualiser::Stock::Colors::RED;
-                    cell_colors[AGENT_STATUS_OCCUPIED] = flamegpu::visualiser::Stock::Colors::GREEN;
-                    cell_colors[AGENT_STATUS_MOVEMENT_REQUESTED] = flamegpu::visualiser::Stock::Colors::BLUE;  // Not possible, only occurs inside the submodel
-                    cell_colors[AGENT_STATUS_MOVEMENT_UNRESOLVED] = flamegpu::visualiser::Stock::Colors::WHITE;
-                    agt.setColor(cell_colors);
-#else
-                    flamegpu::visualiser::DiscreteColor<int> cell_colors = flamegpu::visualiser::DiscreteColor<int>("env_sugar_level", flamegpu::visualiser::Stock::Palettes::Viridis(ENV_SUGAR_MAX_CAPACITY + 1), flamegpu::visualiser::Color{ "#f00" });
-                    agt.setColor(cell_colors);
-#endif
-                }
-                visualisation.activate();
-#endif
-
-                /**
-                 * Initialisation
-                 */
-                cudaSimulation.initialise(argc, argv);
-                // set (override) the number of steps
-#ifdef VISUALISATION
-                cudaSimulation.SimulationConfig().steps = 0;
-#else
-                cudaSimulation.SimulationConfig().steps = BENCHMARK_STEPS;
-#endif
-
-                if (cudaSimulation.getSimulationConfig().input_file.empty()) {
-                    std::default_random_engine rng;
-                    // Pre init, decide the sugar hotspots
-                    std::vector<std::array<unsigned int, 2>> sugar_hotspots;
+                    flamegpu::visualiser::ModelVis& visualisation = cudaSimulation.getVisualisation();
                     {
-                        std::uniform_int_distribution<unsigned int> width_dist(0, gridWidth - 1);
-                        std::uniform_int_distribution<unsigned int> height_dist(0, gridWidth - 1);
-                        // There are a number of hotspots which create an average denisty based on that of the original model
-                        unsigned int num_hotspots = (2 * gridWidth * gridWidth) / (49 * 49);
-                        for (unsigned int h = 0; h < num_hotspots; h++) {
-                            // create random position for new hotspot
-                            std::array<unsigned int, 2> hs = { width_dist(rng), height_dist(rng) };
-                            // recursively ensure that the a random position is not within an euclidean distance of 10
-                            unsigned int attempts = 0;
-                            while (!hotspot_distance_check(sugar_hotspots, hs, gridWidth)) {
-                                hs = { width_dist(rng), height_dist(rng) };
-                                attempts++;
-                                // give up if no position found after 100 attempts
-                                if (attempts == 100) {
-                                    std::cout << "Warning: Maximum attempts reached creating unique location for sugar hotspot." << std::endl;
-                                    break;
-                                }
-                            }
-                            // add hostpot after it has passed the distance checks
-                            sugar_hotspots.push_back(hs);
-                        }
-                    }
-
-
-                    // Currently population has not been init, so generate an agent population on the fly
-                    const unsigned int CELL_COUNT = gridWidth * gridWidth;
-                    std::uniform_real_distribution<float> normal(0, 1);
-                    std::uniform_int_distribution<int> agent_sugar_dist(MIN_INIT_AGENT_SUAGR_WEALTH, MAX_INIT_AGENT_SUAGR_WEALTH);
-                    std::uniform_int_distribution<int> agent_metabolism_dist(MIN_INIT_METABOLISM, MAX_INIT_METABOLISM);
-                    unsigned int i = 0;
-                    unsigned int agent_id = 0;
-                    flamegpu::AgentVector init_pop(model.Agent("agent"), CELL_COUNT);
-                    for (unsigned int x = 0; x < gridWidth; ++x) {
-                        for (unsigned int y = 0; y < gridWidth; ++y) {
-                            flamegpu::AgentVector::Agent instance = init_pop[i++];
-                            instance.setVariable<unsigned int, 2>("pos", { x, y });
-                            // 10% chance of cell holding an agent
-                            if (normal(rng) < PROBABILITY_OF_OCCUPATION) {
-                                instance.setVariable<int>("agent_id", agent_id++);
-                                instance.setVariable<int>("status", AGENT_STATUS_OCCUPIED);
-                                instance.setVariable<int>("sugar_level", agent_sugar_dist(rng));
-                                instance.setVariable<int>("metabolism", agent_metabolism_dist(rng));
-                            } else {
-                                instance.setVariable<int>("agent_id", -1);
-                                instance.setVariable<int>("status", AGENT_STATUS_UNOCCUPIED);
-                                instance.setVariable<int>("sugar_level", 0);
-                                instance.setVariable<int>("metabolism", 0);
-                            }
-                            // environment specific var
-                            unsigned int env_sugar_lvl = 0;
-                            const int hotspot_core_size = 5;
-                            for (auto& hs : sugar_hotspots) {
-                                // Workout the highest sugar lvl from a nearby hotspot
-                                int hs_x = static_cast<int>(std::get<0>(hs));
-                                int hs_y = static_cast<int>(std::get<1>(hs));
-                                // distance to hotspot
-                                float hs_dist = static_cast<float>(sqrt(pow(hs_x - static_cast<int>(x), 2.0f) + pow(hs_y - static_cast<int>(y), 2.0f)));
-
-                                // four bands of sugar with increasing radius of 5
-                                env_sugar_lvl += 4 - std::min<int>(4, static_cast<int>(floor(hs_dist / hotspot_core_size)));
-                            }
-                            env_sugar_lvl = env_sugar_lvl > ENV_SUGAR_MAX_CAPACITY ? ENV_SUGAR_MAX_CAPACITY : env_sugar_lvl;
-                            instance.setVariable<int>("env_max_sugar_level", env_sugar_lvl);  // All cells begin at their local max sugar
-                            instance.setVariable<int>("env_sugar_level", env_sugar_lvl);
-#ifdef VISUALISATION
-                            // Redundant separate floating point position vars for vis
-                            instance.setVariable<float>("x", static_cast<float>(x));
-                            instance.setVariable<float>("y", static_cast<float>(y));
-#endif
-                        }
-                    }
-                    cudaSimulation.setPopulationData(init_pop);
-                }
-
-                /**
-                 * Execution
-                 */
-#ifdef VISUALISATION
-                cudaSimulation.simulate();
-                visualisation.join();
+                        visualisation.setSimulationSpeed(2);
+                        visualisation.setInitialCameraLocation(gridWidth / 2.0f, gridWidth / 2.0f, 225.0f);
+                        visualisation.setInitialCameraTarget(gridWidth / 2.0f, gridWidth / 2.0f, 0.0f);
+                        visualisation.setCameraSpeed(0.001f * gridWidth);
+                        visualisation.setViewClips(0.1f, 5000);
+                        auto& agt = visualisation.addAgent("agent");
+                        // Position vars are named x, y, z; so they are used by default
+                        agt.setModel(flamegpu::visualiser::Stock::Models::CUBE);  // 5 unwanted faces!
+                        agt.setModelScale(1.0f);
+#if VIS_MODE == 0
+                        flamegpu::visualiser::DiscreteColor<int> cell_colors = flamegpu::visualiser::DiscreteColor<int>("status", flamegpu::visualiser::Color{ "#666" });
+                        cell_colors[AGENT_STATUS_UNOCCUPIED] = flamegpu::visualiser::Stock::Colors::RED;
+                        cell_colors[AGENT_STATUS_OCCUPIED] = flamegpu::visualiser::Stock::Colors::GREEN;
+                        cell_colors[AGENT_STATUS_MOVEMENT_REQUESTED] = flamegpu::visualiser::Stock::Colors::BLUE;  // Not possible, only occurs inside the submodel
+                        cell_colors[AGENT_STATUS_MOVEMENT_UNRESOLVED] = flamegpu::visualiser::Stock::Colors::WHITE;
+                        agt.setColor(cell_colors);
 #else
-                // Simulate and log
-                if (experiment.histogram) {
-                    // Iterate for number of steps and update the histogram representing the timings for number of resolution steps required
-                    for (unsigned int i = 0; i < experiment.steps; i++) {
-                        exit_condition_iterations = 0;  // reset the counter used in the exit condition
-                        cudaSimulation.step();
-                        double step_time = cudaSimulation.getElapsedTimeStep(i);
-                        hist_resolution[exit_condition_iterations-1].cumulative_time += step_time;
-                        hist_resolution[exit_condition_iterations-1].samples++;
-                    }
-                    // Average the iterations times and log
-                    for (unsigned int i = 0; i < 9; i++) {
-                        auto& h = hist_resolution[i];
-                        double average_time = 0;
-                        if (h.samples)
-                            average_time = h.cumulative_time / h.samples;
-                        // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_ms)
-                        csv << repetition << "," << gridWidth << "," << popSize << "," << i+1 << "," << average_time << std::endl;
-                    }
-                } else {
-                    // Perform a benchmark simulation if not recording histograms
-                    cudaSimulation.simulate();
-
-                    // log total simulation time
-                    const auto runTime = cudaSimulation.getElapsedTimeSimulation();
-                    const double averageStepTime = runTime / static_cast<float>(BENCHMARK_STEPS);
-                    // log timings to csv (repetition,grid_width,pop_size,ms_step_mean)
-                    csv << repetition << "," << gridWidth << "," << popSize << "," << averageStepTime << std::endl;
-                }
+                        flamegpu::visualiser::DiscreteColor<int> cell_colors = flamegpu::visualiser::DiscreteColor<int>("env_sugar_level", flamegpu::visualiser::Stock::Palettes::Viridis(ENV_SUGAR_MAX_CAPACITY + 1), flamegpu::visualiser::Color{ "#f00" });
+                        agt.setColor(cell_colors);
 #endif
+                    }
+                    visualisation.activate();
+#endif
+
+                    /**
+                     * Initialisation
+                     */
+                    cudaSimulation.initialise(argc, argv);
+                    // set (override) the number of steps
+#ifdef VISUALISATION
+                    cudaSimulation.SimulationConfig().steps = 0;
+#else
+                    cudaSimulation.SimulationConfig().steps = BENCHMARK_STEPS;
+#endif
+
+                    if (cudaSimulation.getSimulationConfig().input_file.empty()) {
+                        std::default_random_engine rng;
+                        // Pre init, decide the sugar hotspots
+                        std::vector<std::array<unsigned int, 2>> sugar_hotspots;
+                        {
+                            std::uniform_int_distribution<unsigned int> width_dist(0, gridWidth - 1);
+                            std::uniform_int_distribution<unsigned int> height_dist(0, gridWidth - 1);
+                            // There are a number of hotspots which create an average denisty based on that of the original model
+                            unsigned int num_hotspots = (2 * gridWidth * gridWidth) / (49 * 49);
+                            for (unsigned int h = 0; h < num_hotspots; h++) {
+                                // create random position for new hotspot
+                                std::array<unsigned int, 2> hs = { width_dist(rng), height_dist(rng) };
+                                // recursively ensure that the a random position is not within an euclidean distance of 10
+                                unsigned int attempts = 0;
+                                while (!hotspot_distance_check(sugar_hotspots, hs, gridWidth)) {
+                                    hs = { width_dist(rng), height_dist(rng) };
+                                    attempts++;
+                                    // give up if no position found after 100 attempts
+                                    if (attempts == 100) {
+                                        std::cout << "Warning: Maximum attempts reached creating unique location for sugar hotspot." << std::endl;
+                                        break;
+                                    }
+                                }
+                                // add hostpot after it has passed the distance checks
+                                sugar_hotspots.push_back(hs);
+                            }
+                        }
+
+
+                        // Currently population has not been init, so generate an agent population on the fly
+                        const unsigned int CELL_COUNT = gridWidth * gridWidth;
+                        std::uniform_real_distribution<float> normal(0, 1);
+                        std::uniform_int_distribution<int> agent_sugar_dist(MIN_INIT_AGENT_SUAGR_WEALTH, MAX_INIT_AGENT_SUAGR_WEALTH);
+                        std::uniform_int_distribution<int> agent_metabolism_dist(MIN_INIT_METABOLISM, MAX_INIT_METABOLISM);
+                        unsigned int i = 0;
+                        unsigned int agent_id = 0;
+                        flamegpu::AgentVector init_pop(model.Agent("agent"), CELL_COUNT);
+                        for (unsigned int x = 0; x < gridWidth; ++x) {
+                            for (unsigned int y = 0; y < gridWidth; ++y) {
+                                flamegpu::AgentVector::Agent instance = init_pop[i++];
+                                instance.setVariable<unsigned int, 2>("pos", { x, y });
+                                // 10% chance of cell holding an agent
+                                if (normal(rng) < pOccupation) {
+                                    instance.setVariable<int>("agent_id", agent_id++);
+                                    instance.setVariable<int>("status", AGENT_STATUS_OCCUPIED);
+                                    instance.setVariable<int>("sugar_level", agent_sugar_dist(rng));
+                                    instance.setVariable<int>("metabolism", agent_metabolism_dist(rng));
+                                }
+                                else {
+                                    instance.setVariable<int>("agent_id", -1);
+                                    instance.setVariable<int>("status", AGENT_STATUS_UNOCCUPIED);
+                                    instance.setVariable<int>("sugar_level", 0);
+                                    instance.setVariable<int>("metabolism", 0);
+                                }
+                                // environment specific var
+                                unsigned int env_sugar_lvl = 0;
+                                const int hotspot_core_size = 5;
+                                for (auto& hs : sugar_hotspots) {
+                                    // Workout the highest sugar lvl from a nearby hotspot
+                                    int hs_x = static_cast<int>(std::get<0>(hs));
+                                    int hs_y = static_cast<int>(std::get<1>(hs));
+                                    // distance to hotspot
+                                    float hs_dist = static_cast<float>(sqrt(pow(hs_x - static_cast<int>(x), 2.0f) + pow(hs_y - static_cast<int>(y), 2.0f)));
+
+                                    // four bands of sugar with increasing radius of 5
+                                    env_sugar_lvl += 4 - std::min<int>(4, static_cast<int>(floor(hs_dist / hotspot_core_size)));
+                                }
+                                env_sugar_lvl = env_sugar_lvl > ENV_SUGAR_MAX_CAPACITY ? ENV_SUGAR_MAX_CAPACITY : env_sugar_lvl;
+                                instance.setVariable<int>("env_max_sugar_level", env_sugar_lvl);  // All cells begin at their local max sugar
+                                instance.setVariable<int>("env_sugar_level", env_sugar_lvl);
+#ifdef VISUALISATION
+                                // Redundant separate floating point position vars for vis
+                                instance.setVariable<float>("x", static_cast<float>(x));
+                                instance.setVariable<float>("y", static_cast<float>(y));
+#endif
+                            }
+                        }
+                        cudaSimulation.setPopulationData(init_pop);
+                    }
+
+                    /**
+                     * Execution
+                     */
+#ifdef VISUALISATION
+                    cudaSimulation.simulate();
+                    visualisation.join();
+#else
+                     // Simulate and log
+                    if (experiment.histogram) {
+                        // Iterate for number of steps and update the histogram representing the timings for number of resolution steps required
+                        for (unsigned int i = 0; i < experiment.steps; i++) {
+                            exit_condition_iterations = 0;  // reset the counter used in the exit condition
+                            cudaSimulation.step();
+                            double step_time = cudaSimulation.getElapsedTimeStep(i);
+                            hist_resolution[exit_condition_iterations - 1].cumulative_time += step_time;
+                            hist_resolution[exit_condition_iterations - 1].samples++;
+                        }
+                        // Average the iterations times and log
+                        for (unsigned int i = 0; i < 9; i++) {
+                            auto& h = hist_resolution[i];
+                            double average_time = 0;
+                            if (h.samples)
+                                average_time = h.cumulative_time / h.samples;
+                            // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_ms)
+                            csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i + 1 << "," << h.samples << "," << average_time << std::endl;
+                        }
+                    }
+                    else {
+                        // Perform a benchmark simulation if not recording histograms
+                        cudaSimulation.simulate();
+
+                        // log total simulation time
+                        const auto runTime = cudaSimulation.getElapsedTimeSimulation();
+                        const double averageStepTime = runTime / static_cast<float>(BENCHMARK_STEPS);
+                        // log timings to csv (repetition,grid_width,pop_size,ms_step_mean)
+                        csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << averageStepTime << std::endl;
+                    }
+#endif
+                }
             }
         }
     }
