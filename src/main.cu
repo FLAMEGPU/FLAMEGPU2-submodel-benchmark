@@ -323,9 +323,9 @@ int main(int argc, const char** argv) {
         std::string csvFileName = "" + experiment.title + ".csv";
         std::ofstream csv(csvFileName);
         if (experiment.histogram) {
-            csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,occurrences,average_ms" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,occurrences,average_s" << std::endl;
         } else {
-            csv << "repetition,grid_width,pop_size,p_occupation,ms_step_mean" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,s_step_mean" << std::endl;
         }
 
         // number of repitions of experiment
@@ -621,7 +621,7 @@ int main(int argc, const char** argv) {
                             double average_time = 0;
                             if (h.samples)
                                 average_time = h.cumulative_time / h.samples;
-                            // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_ms)
+                            // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_s)
                             csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i + 1 << "," << h.samples << "," << average_time << std::endl;
                         }
                     } else {
@@ -631,7 +631,7 @@ int main(int argc, const char** argv) {
                         // log total simulation time
                         const auto runTime = cudaSimulation.getElapsedTimeSimulation();
                         const double averageStepTime = runTime / static_cast<float>(BENCHMARK_STEPS);
-                        // log timings to csv (repetition,grid_width,pop_size,ms_step_mean)
+                        // log timings to csv (repetition,grid_width,pop_size,s_step_mean)
                         csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << averageStepTime << std::endl;
                     }
 #endif
