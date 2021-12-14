@@ -31,9 +31,12 @@
 // Number of steps and repetitions for different expeirments.
 #define VIS_REPETITIONS 1
 #define VIS_STEPS 0
+#define VIS_SEED 0
+#define VIS_SIMULATION_SPEED 2  // Target visualistaion speed
 
 #define BENCHMARK_STEPS 100
 #define BENCHMARK_REPETITIONS 3
+#define BENCHMARK_SEED 0
 
 typedef struct HistExitCondition {
     double cumulative_time;
@@ -474,7 +477,7 @@ int main(int argc, const char** argv) {
 #ifdef VISUALISATION
                     flamegpu::visualiser::ModelVis& visualisation = cudaSimulation.getVisualisation();
                     {
-                        visualisation.setSimulationSpeed(2);
+                        visualisation.setSimulationSpeed(VIS_SIMULATION_SPEED);
                         visualisation.setInitialCameraLocation(gridWidth / 2.0f, gridWidth / 2.0f, 225.0f);
                         visualisation.setInitialCameraTarget(gridWidth / 2.0f, gridWidth / 2.0f, 0.0f);
                         visualisation.setCameraSpeed(0.001f * gridWidth);
@@ -508,9 +511,16 @@ int main(int argc, const char** argv) {
 #else
                     cudaSimulation.SimulationConfig().steps = BENCHMARK_STEPS;
 #endif
-
+                    // Set the seed for the simualtion. This must be done after CLI parsing as it is not currently possible to set a CLI over-rideable default for the vis mode.
+#ifdef VISUALISATION
+                    cudaSimulation.SimulationConfig().random_seed = VIS_SEED;
+#else
+                    cudaSimulation.SimulationConfig().random_seed = BENCHMARK_SEED + repetition;
+#endif
+                    // Apply the configuration, to ensure that the seed will be used as intended.
+                    cudaSimulation.applyConfig();
                     if (cudaSimulation.getSimulationConfig().input_file.empty()) {
-                        std::default_random_engine rng;
+                        std::mt19937_64 rng(cudaSimulation.getSimulationConfig().random_seed);
                         // Pre init, decide the sugar hotspots
                         std::vector<std::array<unsigned int, 2>> sugar_hotspots;
                         {
