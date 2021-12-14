@@ -28,7 +28,12 @@
 // Visualisation mode (0=occupied/move status, 1=occupied/sugar/level)
 #define VIS_MODE 1
 
+// Number of steps and repetitions for different expeirments.
+#define VIS_REPETITIONS 1
+#define VIS_STEPS 0
+
 #define BENCHMARK_STEPS 100
+#define BENCHMARK_REPETITIONS 3
 
 typedef struct HistExitCondition {
     double cumulative_time;
@@ -297,14 +302,14 @@ int main(int argc, const char** argv) {
     std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment visualisationExperiment("sub_model", 256, 256, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), 1, 0, false);
+    Experiment visualisationExperiment("sub_model", 256, 256, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), VIS_REPETITIONS, VIS_STEPS, false);
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
-    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), 10, BENCHMARK_STEPS, false);
+    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
     experiments.push_back(performance_scaling);
     // Histogram experiment to record average time required at each number of movement resoltuion steps within the sub model
-    // Experiment resolution_steps("resolution_steps", 1024, 1024, 64, std::vector<float>({0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f}), 1, 1, true);
+    // Experiment resolution_steps("resolution_steps", 1024, 1024, 64, std::vector<float>({0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f}), BENCHMARK_REPETITIONS, 1, true);
     // experiments.push_back(resolution_steps);
 #endif
 
