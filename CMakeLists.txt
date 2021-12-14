@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION VERSION 3.18 FATAL_ERROR)
 
 # Name the project and set languages
-project(example CUDA CXX)
+project(submodel_benchmark CUDA CXX)
 
 # Option to enable/disable building the visualisation
 option(VISUALISATION "Enable visualisation support" OFF)
