@@ -551,8 +551,7 @@ int main(int argc, const char** argv) {
                                     instance.setVariable<int>("status", AGENT_STATUS_OCCUPIED);
                                     instance.setVariable<int>("sugar_level", agent_sugar_dist(rng));
                                     instance.setVariable<int>("metabolism", agent_metabolism_dist(rng));
-                                }
-                                else {
+                                } else {
                                     instance.setVariable<int>("agent_id", -1);
                                     instance.setVariable<int>("status", AGENT_STATUS_UNOCCUPIED);
                                     instance.setVariable<int>("sugar_level", 0);
@@ -610,8 +609,7 @@ int main(int argc, const char** argv) {
                             // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_ms)
                             csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i + 1 << "," << h.samples << "," << average_time << std::endl;
                         }
-                    }
-                    else {
+                    } else {
                         // Perform a benchmark simulation if not recording histograms
                         cudaSimulation.simulate();
 
