@@ -30,10 +30,10 @@ EXPECTED_CSV_FILES=[
 
 
 # input cols for per step per sim
-# GPU,release_mode,seatbelts_on,model,steps,agent_count,env_width,comm_radius,repeat,agent_density,step,ms_step
+# GPU,release_mode,seatbelts_on,model,steps,agent_count,env_width,comm_radius,repeat,agent_density,step,s_step
 
 # Input cols for per sim.
-# GPU,release_mode,seatbelts_on,model,steps,agent_count,env_width,comm_radius,repeat,agent_density,mean_message_count,ms_rtc,ms_simulation,ms_init,ms_exit,ms_sim_mean
+# GPU,release_mode,seatbelts_on,model,steps,agent_count,env_width,comm_radius,repeat,agent_density,mean_message_count,s_rtc,s_simulation,s_init,s_exit,s_sim_mean
 
 # input csv columns which identify a row as a duplicate of another repetition for aggregation, for per-step per-sim csvs
 GROUP_BY_COLUMNS_PER_STEP_PER_SIM = ['pop_size', 'grid_width']
@@ -44,12 +44,12 @@ GROUP_BY_COLUMNS_PER_SIM = ['pop_size', 'grid_width']
 
 # Aggregate operations to apply across grouped csv rows, for the per-step per-sim csvs
 AGGREGATIONS_PER_STEP_PER_SIM = {
-    'ms_step_mean' : ['mean']
+    's_step_mean' : ['mean']
 }
 
 # Aggregate operations to apply across grouped csv rows, for the per-sim csvs
 AGGREGATIONS_PER_SIM = {
-    'ms_step_mean' : ['mean']
+    's_step_mean' : ['mean']
 }
 
 
@@ -227,10 +227,10 @@ def store_processed_data(input_dataframes, processed_dataframes, output_dir, for
 
         # Get the max rtc time from the input file, and also output the mean too for good measure.
         # @todo - might be better to have a threshold cutoff?
-        if "ms_rtc" in input_df: 
-            max_ms_rtc = input_df["ms_rtc"].max()
-            mean_ms_rtc = input_df["ms_rtc"].mean()
-            print(f"{csv_name}: max_ms_rtc {max_ms_rtc:.3f}, mean_ms_rtc {mean_ms_rtc:.3f}")
+        if "s_rtc" in input_df: 
+            max_s_rtc = input_df["s_rtc"].max()
+            mean_s_rtc = input_df["s_rtc"].mean()
+            print(f"{csv_name}: max_s_rtc {max_s_rtc:.3f}, mean_s_rtc {mean_s_rtc:.3f}")
 
     return success
 
@@ -247,18 +247,18 @@ MANUAL_PRETTY_CSV_KEY_MAP = {
     "repeat": "Repeat",
     "agent_density": "Agent Density",
     "mean_message_count": "Average Message Count",
-    "ms_rtc": "RTC Time (ms)",
-    "ms_simulation": "Simulation Time (ms)",
-    "ms_init": "Init Function Time (ms)",
-    "ms_exit": "Exit Function Time (ms)",
-    "ms_sim_mean": "Average Simulation Time (ms)",
-    "ms_step": "Step Time (ms)",
-    "mean_ms_rtc": "Average RTC Time (ms)",
-    "mean_ms_simulation": "Average Simulation Time (ms)",
-    "mean_ms_init": "Average Init Function Time (ms)",
-    "mean_ms_exit": "Average Exit Function Time (ms)",
-    "mean_ms_sim_mean": "Average Simulation Time (ms)",
-    "mean_ms_step_mean": "Average Step Time (ms)",
+    "s_rtc": "RTC Time (s)",
+    "s_simulation": "Simulation Time (s)",
+    "s_init": "Init Function Time (s)",
+    "s_exit": "Exit Function Time (s)",
+    "s_sim_mean": "Average Simulation Time (s)",
+    "s_step": "Step Time (s)",
+    "mean_s_rtc": "Average RTC Time (s)",
+    "mean_s_simulation": "Average Simulation Time (s)",
+    "mean_s_init": "Average Init Function Time (s)",
+    "mean_s_exit": "Average Exit Function Time (s)",
+    "mean_s_sim_mean": "Average Simulation Time (s)",
+    "mean_s_step_mean": "Average Step Time (s)",
     "mean_agent_density": "Agent Density",
     "env_volume": "Environment Volume",
     "num_species" : "Number of Species",
@@ -482,7 +482,7 @@ PLOTS_PER_CSV={
             filename="submodel_performance_scaling.png",
             plot_type="lineplot",
             xkey="pop_size",
-            ykey="mean_ms_step_mean",
+            ykey="mean_s_step_mean",
             sns_palette=SEQUENTIAL_PALETTE,
             minx=0,
             miny=0
