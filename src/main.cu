@@ -321,7 +321,7 @@ int main(int argc, const char** argv) {
 
         // Pandas logging
         std::string csvFileName = "" + experiment.title + ".csv";
-        std::ofstream csv(csvFileName, std::ios::app);
+        std::ofstream csv(csvFileName);
         if (experiment.histogram) {
             csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,occurrences,average_ms" << std::endl;
         } else {
