@@ -312,7 +312,7 @@ int main(int argc, const char** argv) {
         std::cout << std::endl << "Starting experiment: " << experiment.title << std::endl;
 
         // Pandas logging
-        std::string csvFileName = "./results/" + experiment.title + ".csv";
+        std::string csvFileName = "" + experiment.title + ".csv";
         std::ofstream csv(csvFileName, std::ios::app);
         if (experiment.histogram) {
             csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,occurrences,average_ms" << std::endl;
