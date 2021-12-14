@@ -297,11 +297,11 @@ int main(int argc, const char** argv) {
     std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment visualisationExperiment("sub_model", 256, 256, 64, std::vector<float>(PROBABILITY_OF_OCCUPATION), 1, 0, false);
+    Experiment visualisationExperiment("sub_model", 256, 256, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), 1, 0, false);
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
-    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>(PROBABILITY_OF_OCCUPATION), 10, BENCHMARK_STEPS, false);
+    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), 10, BENCHMARK_STEPS, false);
     experiments.push_back(performance_scaling);
     // Histogram experiment to record average time required at each number of movement resoltuion steps within the sub model
     // Experiment resolution_steps("resolution_steps", 1024, 1024, 64, std::vector<float>({0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f}), 1, 1, true);
