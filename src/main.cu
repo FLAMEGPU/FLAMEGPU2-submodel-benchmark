@@ -305,7 +305,7 @@ int main(int argc, const char** argv) {
     std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment visualisationExperiment("sub_model", 256, 256, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), VIS_REPETITIONS, VIS_STEPS, false);
+    Experiment visualisationExperiment("visualisation", 256, 256, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), VIS_REPETITIONS, VIS_STEPS, false);
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
