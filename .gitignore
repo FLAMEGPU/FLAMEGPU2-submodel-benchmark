@@ -6,6 +6,10 @@
 # Visualisation screenshots
 *.png
 
+# Python virtual environmnt direcotries
+.venv/
+venv/
+
 # GoogleTest directories (handled by CMake)
 googletest-build/
 googletest-download/
