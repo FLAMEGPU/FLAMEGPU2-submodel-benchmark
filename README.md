@@ -131,6 +131,19 @@ For non-visualisation builds, this will generate a CSV file with performance met
 
 Figures can be generated from data in CSV files via a python script.
 
-It is recommended to use python virtual environment or conda environment for plotting dependencies. 
+It is recommended to use python virtual environment or conda environment for plotting dependencies.
 
-I.e. for linux to install the dependencies into a virtual environment 
+I.e. for linux to install the dependencies into a python3 virtual environment and plot the data within `build/performance_scaling.csv`
+
+```bash
+# From the root of the repository
+# Create the venv
+python3 -m venv .venv
+# Activate the venv
+source .venv/bin/activate
+# Install the dependencies via pip
+python3 -m pip install -Ur requirements.txt
+# Plot using csv files contained within the build directory
+python3 plot.py build -o build/figures
+# Use -h / --help for more information on optional plotting script parameters.
+```
