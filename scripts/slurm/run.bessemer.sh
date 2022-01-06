@@ -25,7 +25,7 @@ export FLAMEGPU2_INC_DIR=_deps/flamegpu2-src/include
 
 # Output some GPU information into the Log
 echo $CUDA_VISIBLE_DEVICES
-nvidia-smii
+nvidia-smi
 
 # Run the executable.
 ./bin/Release/submodel_benchmark
