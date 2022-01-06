@@ -2,10 +2,10 @@
 
 ## Machine configurations
 
-The following machine configurations were used to obtained the data and figures stored within the repository. The folder format uses the following convention;
+The following machine configurations were used to obtain the data and figures stored within the repository. The folder format uses the following convention;
 
 ```
-[gpu short name]-[CUDA version]-[Driver version]\[FLAMEGPU2 Release tag]-[gpu short name]-[CUDA version]-beltsoff
+[gpu short name]-[Driver version]\[FLAMEGPU2 Release tag]-[gpu short name]-[CUDA version]-beltsoff
 ```
 
 ### V100
