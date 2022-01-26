@@ -1,139 +1,62 @@
-# FLAME GPU 2 Submodel Benchmark Model
+# FLAMEGPU2 Submodel Benchmark
 
-This repository contains performance benchmarking of a [FLAMEGPU/FLAMEGPU2](https://github.com/FLAMEGPU/FLAMEGPU2) implementation of the SugarScape model, used to benchmark the [Submodel](https://docs.flamegpu.com/guide/7-submodels/) feature of FLAME GPU 2.
+This repository contains performance benchmarking of a [FLAME GPU 2](https://github.com/FLAMEGPU/FLAMEGPU2) implementation of a sugarscape model with instantaneous grow back. It is an example which shows how to use sub modelling to resolve competition within the model. In this case competition for movement to areas of high resource.
 
-<!-- @todo - expand this description of the benchmark model -->
+The code demonstrates the performance scaling of the benchmark when varying the world size.
 
-<!-- ## Visualisation  -->
 
-<!-- @todo - add the visualisation screenshot -->
+## Benchmark Description and Results
 
-<!-- ## Benchmark Results -->
+A single experiment is undertaken within this benchmark. There is a range of raw data in the [`sample/data`](sample/data) directory with a description of the machine configurations used to generate it in each directory.
 
-<!-- @todo - add results figures -->
+The results below are from the V100 runs on the Bessemer HPC system at the University of Sheffield. Job submission scripts are included in the [`scripts/slurm`](scripts/slurm) folder.
 
-## Requirements
+### Performance scaling
 
-Building FLAME GPU has the following requirements. There are also optional dependencies which are required for some components, such as Documentation or Python bindings.
+This figure shows how the average simulation time scales the population size (i.e. the number of agents) contained within the model.
 
-+ [CMake](https://cmake.org/download/) `>= 3.18`
-+ [CUDA](https://developer.nvidia.com/cuda-downloads) `>= 11.0` and a Compute Capability `>= 3.5` NVIDIA GPU.
-  + CUDA `>= 10.0` currently works, but support will be removed in a future release.
-+ C++17 capable C++ compiler (host), compatible with the installed CUDA version
-  + [Microsoft Visual Studio 2019](https://visualstudio.microsoft.com/) (Windows)
-  + [make](https://www.gnu.org/software/make/) and [GCC](https://gcc.gnu.org/) `>= 7`
-  + Older C++ compilers which support C++14 may currently work, but support will be dropped in a future release.
-+ [git](https://git-scm.com/)
++ Population grid width is stepped between 64 and 4096 at intervals of 64
++ The initial probability of occupation is fixed at 0.17f
++ Simulation timing is measured over 100 steps
+	
+![sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png)
 
-Optionally:
+### Visualisation
 
-+ [cpplint](https://github.com/cpplint/cpplint) for linting code
-+ [FLAMEGPU2-visualiser](https://github.com/FLAMEGPU/FLAMEGPU2-visualiser) dependencies
-  + [SDL](https://www.libsdl.org/)
-  + [GLM](http://glm.g-truc.net/) *(consistent C++/GLSL vector maths functionality)*
-  + [GLEW](http://glew.sourceforge.net/) *(GL extension loader)*
-  + [FreeType](http://www.freetype.org/)  *(font loading)*
-  + [DevIL](http://openil.sourceforge.net/)  *(image loading)*
-  + [Fontconfig](https://www.fontconfig.org/)  *(Linux only, font detection)*
+In order to run the visualisation the model must be reconfigured using cmake with the `-DVISUALISATION` option. This will disable the performance scaling experiment so that visualisation is run with the following parameters. The following visualisation is obtained from the visualisation experiment at time step 0.
 
-For the plotting script, Python >= 3.6 is required, with python module dependencies listed in `requirements.txt`.
+![sample/figures/visualisation/screenshot.png](sample/figures/visualisation/screenshot.png)
 
-## Building with CMake
+## Building and Running the Benchmark
 
-Building via CMake is a three step process, with slight differences depending on your platform.
-
-1. Create a build directory for an out-of tree build
-2. Configure CMake into the build directory
-    + Using the CMake GUI or CLI tools
-    + Specifying build options such as the CUDA Compute Capabilities to target, the inclusion of Visualisation or Python components, or performance impacting features such as `SEATBELTS`.
-3. Build compilation targets using the configured build system
-
-### Linux
-
-To configure and build the `submodel_benchmark` binary on linux for benchmarking using Volta generation (SM 70) GPU(s), configure as a Release build with SEATBELTS disabled via :
+Detail of dependencies and the `cmake` build process are described in full in the [FLAMEGPU2-example-template Repo](https://github.com/FLAMEGPU/FLAMEGPU2-example-template) and are not repeated here. The benchmark should be built with seatbelts off (e.g. `-DSEATBELTS=OFF` passed to the `cmake` configuration step) to disable additional run-time checks and optionally disabling Python Swig support which is not needed for this model(-DBUILD_SWIG_PYTHON=OFF ). E.g. for Volta (`SM_70`) GPUs under Linux.
 
 ```bash
-# Create the build directory and change into it
-mkdir -p build && cd build
-
-# Configure CMake from the command line passing configure-time options. 
-cmake .. -DCMAKE_BUILD_TYPE=Release -DSEATBELTS=OFF -DCUDA_ARCH=70 
-
-# Build the target(s)
-cmake --build . --target submodel_benchmark -j 8
+# Configure 
+cmake . -B build -DCMAKE_BUILD_TYPE=Release -DSEATBELTS=OFF -DBUILD_SWIG_PYTHON=OFF -DCUDA_ARCH=70
+# Build
+cmake --build build -j`nproc` 
 ```
 
-Alternatively to configure for visualisation purposes, enable the `VISUALISATION` CMake option:
+### Execution and Data generation
 
 ```bash
-# Create the build directory and change into it
-mkdir -p build && cd build
-
-# Configure CMake from the command line passing configure-time options. 
-cmake .. -DCMAKE_BUILD_TYPE=Release -DSEATBELTS=OFF -DCUDA_ARCH=70 -DVISUALISATION=ON
-
-# Build the target(s)
-cmake --build . --target submodel_benchmark -j 8
-```
-
-### Windows
-
-Under Windows, you must instruct CMake on which Visual Studio and architecture to build for, using the CMake `-A` and `-G` options.
-This can be done through the GUI or the CLI.
-
-To configure and build the `submodel_benchmark` binary on linux for benchmarking using Volta generation (SM 70) GPU(s), configure as a Release build with SEATBELTS disabled via :
-
-```cmd
-REM Create the build directory 
-mkdir build
 cd build
-
-REM Configure CMake from the command line, specifying the -A and -G options. Alternatively use the GUI
-cmake .. -A x64 -G "Visual Studio 16 2019"-DSEATBELTS=OFF -DCUDA_ARCH=70 
-
-REM You can then open Visual Studio manually from the .sln file, or via:
-cmake --open . 
-REM Alternatively, build from the command line specifying the build configuration
-cmake --build . --config Release --target submodel_benchmark --verbose
+./bin/Release/circles-benchmarking 
 ```
+This will produce a number of `.csv` files in the `build` directory.
 
-Alternatively to configure for visualisation purposes, enable the `VISUALISATION` CMake option:
+Note: The `FLAMEGPU2_INC_DIR` environment variable may need to be set to `./_deps/flamegpu2-src/include/` for run-time compilation (RTC) to succeed if the source directory is not automatically found.
 
-```cmd
-REM Create the build directory 
-mkdir build
-cd build
-
-REM Configure CMake from the command line, specifying the -A and -G options. Alternatively use the GUI
-cmake .. -A x64 -G "Visual Studio 16 2019"-DSEATBELTS=OFF -DCUDA_ARCH=70 -DVISUALISATION=ON
-
-REM You can then open Visual Studio manually from the .sln file, or via:
-cmake --open . 
-REM Alternatively, build from the command line specifying the build configuration
-cmake --build . --config Release --target submodel_benchmark --verbose
-```
-
-## Running the Benchmark or Visualisation
-
-
-Once compiled, executing the generated binary file will run the performance benchmark, or run the visualisation of a single infinitely running simulation (at a reduced rate of simulation)
-
-I.e. from the `build` directory on Linux:
-
-```bash
-./bin/Release/submodel_benchmark 
-```
-
-For non-visualisation builds, this will generate a CSV file with performance metrics included which can later be post-processed to generate figures.
-
-
-## Plotting Benchmark Data
+## Plotting Results
 
 Figures can be generated from data in CSV files via a python script.
 
+### Dependencies
+
 It is recommended to use python virtual environment or conda environment for plotting dependencies.
 
-I.e. for linux to install the dependencies into a python3 virtual environment and plot the data within `build/performance_scaling.csv`
+I.e. for Linux to install the dependencies into a python3 virtual environment and plot the results from all experiments output to the `build` directory.
 
 ```bash
 # From the root of the repository
@@ -146,4 +69,10 @@ python3 -m pip install -Ur requirements.txt
 # Plot using csv files contained within the build directory
 python3 plot.py build -o build/figures
 # Use -h / --help for more information on optional plotting script parameters.
+```
+
+The sample figures were generated from the root directory using
+
+```bash
+python3 plot.py sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/data-figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
 ```
