@@ -38,13 +38,11 @@
 #define BENCHMARK_REPETITIONS 3
 #define BENCHMARK_SEED 0
 
-typedef struct HistExitCondition {
-    double cumulative_time;
-    unsigned int samples;
-} HistExitCondition;
-
 // Counter for number of iterations required to resolve conflicting movements
 unsigned int exit_condition_iterations = 0;
+unsigned int occupied = 0;
+std::array<unsigned int, 9> step_unresolved_count;
+std::array<unsigned int, 9> mean_unresolved_count;
 
 
 FLAMEGPU_AGENT_FUNCTION(metabolise_and_growback, flamegpu::MessageNone, flamegpu::MessageNone) {
@@ -225,10 +223,15 @@ FLAMEGPU_EXIT_CONDITION(MovementExitCondition) {
     // Max iterations 9
     if (exit_condition_iterations < 9) {
         // Agent movements still unresolved
-        if (FLAMEGPU->agent("agent").count("status", AGENT_STATUS_MOVEMENT_UNRESOLVED)) {
+        unsigned int unresolved = FLAMEGPU->agent("agent").count("status", AGENT_STATUS_MOVEMENT_UNRESOLVED);
+        step_unresolved_count[exit_condition_iterations] = unresolved;
+        if (unresolved) {
             return flamegpu::CONTINUE;
         }
     }
+
+    //save the number of occupied cells after exit condition
+    occupied = FLAMEGPU->agent("agent").count("status", AGENT_STATUS_OCCUPIED);
 
     // exit_condition_iterations = 0;
     return flamegpu::EXIT;
@@ -309,11 +312,19 @@ int main(int argc, const char** argv) {
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
-    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
-    experiments.push_back(performance_scaling);
+    //Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
+    //experiments.push_back(performance_scaling);
     // Histogram experiment to record average time required at each number of movement resoltuion steps within the sub model
-    // Experiment resolution_steps("resolution_steps", 1024, 1024, 64, std::vector<float>({0.1f,0.2f,0.3f,0.4f,0.5f,0.6f,0.7f,0.8f,0.9f}), BENCHMARK_REPETITIONS, 1, true);
-    // experiments.push_back(resolution_steps);
+    //Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.1f,0.2f,0.3f,0.4f,0.5f }), BENCHMARK_REPETITIONS, 1, true);
+    
+    Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f, 0.64f }), BENCHMARK_REPETITIONS, 10, true);
+    experiments.push_back(resolution_steps);
+
+
+    //Experiment performance_scaling("performance_scaling", 64, 512, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), 1, BENCHMARK_STEPS, false);
+    //experiments.push_back(performance_scaling);
+
+
 #endif
 
     for (Experiment experiment : experiments) {
@@ -322,10 +333,14 @@ int main(int argc, const char** argv) {
         // Pandas logging
         std::string csvFileName = "" + experiment.title + ".csv";
         std::ofstream csv(csvFileName);
+        std::string csvFileNameStep = "" + experiment.title + "perStep.csv";
+        std::ofstream csv_step(csvFileNameStep);
+
         if (experiment.histogram) {
-            csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,occurrences,average_s" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,mean_unresolved_count" << std::endl;
         } else {
-            csv << "repetition,grid_width,pop_size,p_occupation,s_step_mean" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,s_step_mean,pop_count_mean" << std::endl;
+            csv_step << "repetition,grid_width,pop_size,p_occupation,step,s_step,pop_count" << std::endl;
         }
 
         // number of repitions of experiment
@@ -337,14 +352,6 @@ int main(int argc, const char** argv) {
                     unsigned int popSize = gridWidth * gridWidth;
 
                     std::cout << "Staring run with popSize: " << popSize << ", gridthWidth: " << gridWidth << " proabilityOccupation:" << pOccupation << std::endl;
-
-                    // Initialise an empty histogram for logging time and occurances of steps required for resolution
-                    std::array<HistExitCondition, 9> hist_resolution;
-                    for (auto& h : hist_resolution) {
-                        h.cumulative_time = 0;
-                        h.samples = 0;
-                    }
-
 
                     flamegpu::ModelDescription submodel("Movement_model");
                     {  // Define sub model for conflict resolution
@@ -605,34 +612,50 @@ int main(int argc, const char** argv) {
                     cudaSimulation.simulate();
                     visualisation.join();
 #else
-                     // Simulate and log
+
+              
+                     // Simulate and log for Histogram runs (output line per resolution step)
                     if (experiment.histogram) {
+                        // reset mean unserveloved counters
+                        std::fill(std::begin(mean_unresolved_count), std::end(mean_unresolved_count), 0);
                         // Iterate for number of steps and update the histogram representing the timings for number of resolution steps required
                         for (unsigned int i = 0; i < experiment.steps; i++) {
                             exit_condition_iterations = 0;  // reset the counter used in the exit condition
+                            std::fill(std::begin(step_unresolved_count), std::end(step_unresolved_count), 0);
                             cudaSimulation.step();
-                            double step_time = cudaSimulation.getElapsedTimeStep(i);
-                            hist_resolution[exit_condition_iterations - 1].cumulative_time += step_time;
-                            hist_resolution[exit_condition_iterations - 1].samples++;
+                            // accumulate the number of unresolved at each step
+                            for (unsigned int j = 0; j < 9; j++) {
+                                mean_unresolved_count[j] += step_unresolved_count[j];
+                            }
                         }
-                        // Average the iterations times and log
+                        // average the iterations times and unresolved count and log
                         for (unsigned int i = 0; i < 9; i++) {
-                            auto& h = hist_resolution[i];
-                            double average_time = 0;
-                            if (h.samples)
-                                average_time = h.cumulative_time / h.samples;
+                            if (mean_unresolved_count[i])
+                                mean_unresolved_count[i] /= experiment.steps;
                             // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_s)
-                            csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i + 1 << "," << h.samples << "," << average_time << std::endl;
-                        }
+                            csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i + 1 << "," << "," << mean_unresolved_count[i] << std::endl;
+                        }  
+                    // Simulate and log for NON Histogram runs
                     } else {
-                        // Perform a benchmark simulation if not recording histograms
-                        cudaSimulation.simulate();
+                        unsigned int sum_pop_count = 0;
+                        for (unsigned int i = 0; i < experiment.steps; i++) {
+                            occupied = 0;  // reset the counter used in the exit condition
+                            cudaSimulation.step();
+                            unsigned int step_pop_count = occupied;
+                            double step_time = cudaSimulation.getElapsedTimeStep(i);
+                            // write step csv
+                            csv_step << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i << "," << step_time << "," << step_pop_count << std::endl;
+                            // update average
+                            sum_pop_count += step_pop_count;
+                        }
+
 
                         // log total simulation time
                         const auto runTime = cudaSimulation.getElapsedTimeSimulation();
-                        const double averageStepTime = runTime / static_cast<float>(BENCHMARK_STEPS);
+                        const double averageStepTime = runTime / static_cast<double>(BENCHMARK_STEPS);
+                        const double averagePopCount = static_cast<double>(sum_pop_count) / static_cast<double>(BENCHMARK_STEPS);
                         // log timings to csv (repetition,grid_width,pop_size,s_step_mean)
-                        csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << averageStepTime << std::endl;
+                        csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << averageStepTime << "," << averagePopCount << std::endl;
                     }
 #endif
                 }
