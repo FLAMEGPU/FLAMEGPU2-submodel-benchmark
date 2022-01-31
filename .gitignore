@@ -3,6 +3,7 @@
 *.png
 *.csv
 *.eps
+*.pdf
 
 # Model output files
 *.xml

@@ -29,7 +29,7 @@
 #define VIS_MODE 1
 
 // Number of steps and repetitions for different expeirments.
-#define VIS_REPETITIONS 1
+#define VIS_REPETITIONS 3
 #define VIS_STEPS 0
 #define VIS_SEED 0
 #define VIS_SIMULATION_SPEED 2  // Target visualistaion speed
@@ -312,18 +312,11 @@ int main(int argc, const char** argv) {
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
-    //Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
-    //experiments.push_back(performance_scaling);
-    // Histogram experiment to record average time required at each number of movement resoltuion steps within the sub model
-    //Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.1f,0.2f,0.3f,0.4f,0.5f }), BENCHMARK_REPETITIONS, 1, true);
-    
-    Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f, 0.64f }), BENCHMARK_REPETITIONS, 10, true);
+    Experiment performance_scaling("performance_scaling", 64, 4096, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
+    experiments.push_back(performance_scaling);
+
+    Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f,0.64f }), BENCHMARK_REPETITIONS, 10, true);
     experiments.push_back(resolution_steps);
-
-
-    //Experiment performance_scaling("performance_scaling", 64, 512, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), 1, BENCHMARK_STEPS, false);
-    //experiments.push_back(performance_scaling);
-
 
 #endif
 
@@ -337,7 +330,7 @@ int main(int argc, const char** argv) {
         std::ofstream csv_step(csvFileNameStep);
 
         if (experiment.histogram) {
-            csv << "repetition,grid_width,pop_size,p_occupation,resolution_iterations,mean_unresolved_count" << std::endl;
+            csv << "repetition,grid_width,pop_size,p_occupation,mean_pop_count,resolution_iterations,mean_unresolved_count" << std::endl;
         } else {
             csv << "repetition,grid_width,pop_size,p_occupation,s_step_mean,pop_count_mean" << std::endl;
             csv_step << "repetition,grid_width,pop_size,p_occupation,step,s_step,pop_count" << std::endl;
@@ -489,6 +482,9 @@ int main(int argc, const char** argv) {
                         visualisation.setInitialCameraTarget(gridWidth / 2.0f, gridWidth / 2.0f, 0.0f);
                         visualisation.setCameraSpeed(0.001f * gridWidth);
                         visualisation.setViewClips(0.1f, 5000);
+                        visualisation.setClearColor(1.0f, 1.0f, 1.0f);
+                        visualisation.setFPSColor(0.0f, 0.0f, 0.0f);
+                        visualisation.setBeginPaused(true);
                         auto& agt = visualisation.addAgent("agent");
                         // Position vars are named x, y, z; so they are used by default
                         agt.setModel(flamegpu::visualiser::Stock::Models::CUBE);  // 5 unwanted faces!
@@ -619,6 +615,8 @@ int main(int argc, const char** argv) {
                         // reset mean unserveloved counters
                         std::fill(std::begin(mean_unresolved_count), std::end(mean_unresolved_count), 0);
                         // Iterate for number of steps and update the histogram representing the timings for number of resolution steps required
+                        unsigned int sum_occupied_count = 0;
+                        occupied = 0;  // reset the counter used in the exit condition
                         for (unsigned int i = 0; i < experiment.steps; i++) {
                             exit_condition_iterations = 0;  // reset the counter used in the exit condition
                             std::fill(std::begin(step_unresolved_count), std::end(step_unresolved_count), 0);
@@ -627,17 +625,22 @@ int main(int argc, const char** argv) {
                             for (unsigned int j = 0; j < 9; j++) {
                                 mean_unresolved_count[j] += step_unresolved_count[j];
                             }
+                            //accumulate the occupied count (i.e. numberof alive agents)
+                            sum_occupied_count += occupied;
                         }
+                        // average occpied count over steps
+                        float mean_occupied = static_cast<float>(sum_occupied_count) / experiment.steps;
                         // average the iterations times and unresolved count and log
                         for (unsigned int i = 0; i < 9; i++) {
                             if (mean_unresolved_count[i])
                                 mean_unresolved_count[i] /= experiment.steps;
                             // log histogram data to csv (repetition,grid_width,pop_size,resolution_iterations,average_s)
-                            csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i + 1 << "," << "," << mean_unresolved_count[i] << std::endl;
+                            csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << mean_occupied << "," << i + 1 << "," << mean_unresolved_count[i] << std::endl;
                         }  
                     // Simulate and log for NON Histogram runs
                     } else {
                         unsigned int sum_pop_count = 0;
+                        double sum_step_time = 0;
                         for (unsigned int i = 0; i < experiment.steps; i++) {
                             occupied = 0;  // reset the counter used in the exit condition
                             cudaSimulation.step();
@@ -647,12 +650,12 @@ int main(int argc, const char** argv) {
                             csv_step << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << i << "," << step_time << "," << step_pop_count << std::endl;
                             // update average
                             sum_pop_count += step_pop_count;
+                            sum_step_time += step_time;
                         }
 
 
                         // log total simulation time
-                        const auto runTime = cudaSimulation.getElapsedTimeSimulation();
-                        const double averageStepTime = runTime / static_cast<double>(BENCHMARK_STEPS);
+                        const double averageStepTime = sum_step_time / static_cast<double>(BENCHMARK_STEPS);
                         const double averagePopCount = static_cast<double>(sum_pop_count) / static_cast<double>(BENCHMARK_STEPS);
                         // log timings to csv (repetition,grid_width,pop_size,s_step_mean)
                         csv << repetition << "," << gridWidth << "," << popSize << "," << pOccupation << "," << averageStepTime << "," << averagePopCount << std::endl;
