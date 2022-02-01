@@ -308,14 +308,14 @@ int main(int argc, const char** argv) {
     std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment visualisationExperiment("visualisation", 256, 256, 64, std::vector<float>({PROBABILITY_OF_OCCUPATION}), VIS_REPETITIONS, VIS_STEPS, false);
+    Experiment visualisationExperiment("visualisation", 256, 256, 256, std::vector<float>({PROBABILITY_OF_OCCUPATION}), VIS_REPETITIONS, VIS_STEPS, false);
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne sclaing experiment to recoprd performance with increase in model size
-    Experiment performance_scaling("performance_scaling", 256, 4096, 256, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
-    experiments.push_back(performance_scaling);
+    //Experiment performance_scaling("performance_scaling", 256, 4096, 256, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
+    //experiments.push_back(performance_scaling);
 
-    Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f,0.64f }), BENCHMARK_REPETITIONS, 10, true);
+    Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f,0.64f }), BENCHMARK_REPETITIONS, 3, true);
     experiments.push_back(resolution_steps);
 
 #endif

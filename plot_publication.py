@@ -26,7 +26,8 @@ SCALING_CSV_FILENAME = "performance_scaling.csv"
 SCALING_STEP_CSV_FILENAME = "performance_scalingperStep.csv"
 
 # Visualisation images used in the figure (4 required)
-VISUALISATION_IMAGE_FILENAMES = ['0.png', '350.png', '650.png', '2500.png']
+VISUALISATION_IMAGE_FILENAMES = ['0.png', '1.png', '50.png']
+POP_COUNT_D_VALUES = [256, 512, 1024, 2048, 4096]
 
 
 
@@ -55,6 +56,14 @@ def cli():
         type=str, 
         help='Input directory, containing the csv files',
         default=DEFAULT_INPUT_DIR
+    )
+    
+    parser.add_argument(
+        '-v',
+        '--vis-dir', 
+        type=str, 
+        help="Input directory, containing the visualisation files",
+        default=DEFAULT_VISUALISATION_DIR
     )
     
     args = parser.parse_args()
@@ -95,6 +104,24 @@ def validate_args(args):
         else:
             print(f"Error: Invalid input_dir provided {args.input_dir}")
             valid = False
+            
+        # Ensure that the visualisation input directory exists, and that all required images are present.
+    vis_dir = pathlib.Path(args.vis_dir) 
+    if vis_dir.is_dir():
+        missing_files = []
+        for vis_filename in VISUALISATION_IMAGE_FILENAMES:
+            vis_file_path = vis_dir / vis_filename
+            if not vis_file_path.is_file():
+                missing_files.append(vis_file_path)
+                valid = False
+        if len(missing_files) > 0:
+            print(f"Error: {vis_dir} does not contain required files:")
+            for missing_file in missing_files:
+                print(f"  {missing_file}")
+    else:
+        print(f"Error: Invalid vis_dir provided {args.vis_dir}")
+        valid = False
+            
 
     return valid
 
@@ -113,76 +140,80 @@ def main():
     # setup sub plot using mosaic layout
     gs_kw = dict(width_ratios=[1, 1, 1], height_ratios=[1, 1])
     f, ax = plt.subplot_mosaic([['p1', 'p2', 'p3'],
-                                ['p4', 'p5', '.'],
+                                ['p4', 'p5', 'p6'],
                                 ],
-                                  gridspec_kw=gs_kw, figsize=(7.5, 5),
+                                  gridspec_kw=gs_kw, figsize=(10, 5),
                                   constrained_layout=True)
     input_dir = pathlib.Path(args.input_dir)
     
-    # common palette
-    #colours = sns.color_palette("viridis", len(SMALL_POP_SIZES+LARGE_POP_SIZES))
-    #custom_palette = {v: colours[i] for i, v in enumerate(SMALL_POP_SIZES+LARGE_POP_SIZES)}
-    
-
     # POP COUNT
     df = pd.read_csv(input_dir/SCALING_STEP_CSV_FILENAME, sep=',', quotechar='"')
     df.columns = df.columns.str.strip()
+    # Select subset of data for the plot
+    df = df[df['grid_width'].isin(POP_COUNT_D_VALUES)]
+    # Calculate the pop count as a percentage of the initial expected pop size
     df['expected_pop_count'] = df['pop_size']*df['p_occupation']
     df['pop_count_percent'] = df['pop_count'] / df['expected_pop_count'] * 100.0
-    plot = sns.lineplot(data=df, x='step', y='pop_count_percent', hue='pop_size', ax=ax['p1'])
-    
-
+    # Plot
+    plot = sns.lineplot(data=df, x='step', y='pop_count_percent', hue='grid_width', ax=ax['p1'], legend='full')
+    plot.set(xlabel='Step', ylabel='N as percent of $N_{init}$')
+    # set formatting
+    ax['p1'].set_title(label='A', loc='left', fontweight="bold")
+    ax['p1'].legend(title='D')
     
     # RESOLUTION
     # Load per simulation step data into data frame (strip any white space)
     df = pd.read_csv(input_dir/RESOLUTION_CSV_FILENAME, sep=',', quotechar='"')
     df.columns = df.columns.str.strip()
-    #df['expected_pop_count'] = df['pop_size']*df['p_occupation']
     df['unresolved_percent'] = df['mean_unresolved_count'] / df['mean_pop_count'] * 100.0
+    # Plot
     plot = sns.barplot(data=df, x='resolution_iterations', y='unresolved_percent', hue='p_occupation', ax=ax['p2'])
-    
-    # Scaling
-    df = pd.read_csv(input_dir/SCALING_CSV_FILENAME, sep=',', quotechar='"')
-    df.columns = df.columns.str.strip()
-    df['expected_pop_count'] = df['pop_size']*df['p_occupation']
-    plot = sns.lineplot(data=df, x='pop_size', y='s_step_mean', ax=ax['p3'])
-    
-    '''
-    # SMALL_POP_BF_CSV_FILENAME
-    # Load per simulation step data into data frame (strip any white space)
-    df = pd.read_csv(input_dir/SMALL_POP_BF_CSV_FILENAME, sep=',', quotechar='"')
-    df.columns = df.columns.str.strip()
-    # select subset of the pop sizes for plotting
-    df = df[df['pop_size'].isin(SMALL_POP_SIZES)]
-    # calculate baseline and the speedup
-    df_baseline = df.query('ensemble_size == 1').groupby('pop_size', as_index=False).mean()[['pop_size',  's_sim_mean']]
-    df = df.merge(df_baseline, left_on='pop_size', right_on='pop_size', suffixes=('', '_baseline'))
-    df["speedup"] = df['s_sim_mean_baseline'] / df['s_sim_mean']
-    # Plot popsize brute force
-    plt_df_bf = sns.lineplot(x='ensemble_size', y='speedup', hue='pop_size', style='pop_size', data=df, palette=custom_palette, ax=ax['p1'], ci="sd")
-    plt_df_bf.set(xlabel='', ylabel='Speedup')
-    # set tick formatting, title and hide legend
-    ax['p1'].yaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
-    ax['p1'].set_title(label='A', loc='left', fontweight="bold")
-    ax['p1'].legend().set_visible(False)
-    '''
-    
-    
-    # Figure Legend from unique lines in pallet
-    #lines_labels = [ax.get_legend_handles_labels() for ax in f.axes]
-    #lines, labels = [sum(lol, []) for lol in zip(*lines_labels)]
-    #unique = {k:v for k, v in zip(labels, lines)} 
-    #f.legend(unique.values(), unique.keys(), loc='upper right', title='N')
+    plot.set(xlabel='Resolution Steps', ylabel='Unresolved as % of mean N')
+    # set formatting
+    ax['p2'].set_title(label='B', loc='left', fontweight="bold")
+    ax['p2'].legend(title=r'$\rho$')
 
     
+    # SCALING PEFORMANCE
+    df = pd.read_csv(input_dir/SCALING_CSV_FILENAME, sep=',', quotechar='"')
+    df.columns = df.columns.str.strip()
+    # Plot
+    plot = sns.lineplot(data=df, x='pop_size', y='s_step_mean', ax=ax['p3'])
+    plot.set(xlabel='$D^2$', ylabel='Mean step time (s)')
+    # set formatting
+    ax['p3'].set_title(label='C', loc='left', fontweight="bold")
+    
+    
+    # visualisation path
+    visualisation_dir = pathlib.Path(args.vis_dir) 
+    
+    # Plot vis for time step = 0
+    v1 = mpimg.imread(visualisation_dir / VISUALISATION_IMAGE_FILENAMES[0]) 
+    ax['p4'].imshow(v1)
+    ax['p4'].set_axis_off()
+    ax['p4'].set_title(label='D', loc='left', fontweight="bold")
+    
+    # Plot vis for time step = 1
+    v1 = mpimg.imread(visualisation_dir / VISUALISATION_IMAGE_FILENAMES[1]) 
+    ax['p5'].imshow(v1)
+    ax['p5'].set_axis_off()
+    ax['p5'].set_title(label='E', loc='left', fontweight="bold")
+    
+    # Plot vis for time step = 50
+    v1 = mpimg.imread(visualisation_dir / VISUALISATION_IMAGE_FILENAMES[2]) 
+    ax['p6'].imshow(v1)
+    ax['p6'].set_axis_off()
+    ax['p6'].set_title(label='F', loc='left', fontweight="bold")
+    
+   
         
     # Save to image
     #f.tight_layout()
     output_dir = pathlib.Path(args.output_dir) 
     f.savefig(output_dir/"paper_figure.png", dpi=args.dpi) 
-    #f.savefig(output_dir/"paper_figure.pdf", format='pdf', dpi=args.dpi)
+    f.savefig(output_dir/"paper_figure.pdf", format='pdf', dpi=args.dpi)
     
-    plt.show()
+    #plt.show()
 
 
 # Run the main method if this was not included as a module

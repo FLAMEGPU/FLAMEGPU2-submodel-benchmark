@@ -11,6 +11,13 @@ A single experiment is undertaken within this benchmark. There is a range of raw
 
 The results below are from the V100 runs on the Bessemer HPC system at the University of Sheffield. Job submission scripts are included in the [`scripts/slurm`](scripts/slurm) folder.
 
+If the example is built with the CMAKE `VISUALISATION` flag then the experiment runs a single experimental configuration with a fixed communication radius.
+
+An example visualisation can be viewed on YouTube. 
+
+[![Sugarscape model visualisation](https://img.youtube.com/vi/tSLV19AWfwg/0.jpg)](https://youtu.be/tSLV19AWfwg)
+
+
 ### Performance scaling
 
 This figure shows how the average simulation time scales the population size (i.e. the number of agents) contained within the model.
