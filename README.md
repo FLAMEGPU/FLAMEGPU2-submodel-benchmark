@@ -4,19 +4,15 @@ This repository contains performance benchmarking of a [FLAME GPU 2](https://git
 
 The code demonstrates the performance scaling of the benchmark when varying the world size.
 
-
 ## Benchmark Description and Results
 
 A single experiment is undertaken within this benchmark. There is a range of raw data in the [`sample/data`](sample/data) directory with a description of the machine configurations used to generate it in each directory.
 
 The results below are from the V100 runs on the Bessemer HPC system at the University of Sheffield. Job submission scripts are included in the [`scripts/slurm`](scripts/slurm) folder.
 
-If the example is built with the CMAKE `VISUALISATION` flag then the experiment runs a single experimental configuration with a fixed communication radius.
+A combined figure for use in publication is shown below. For details please refer to the publication.
 
-An example visualisation can be viewed on YouTube. 
-
-[![Sugarscape model visualisation](https://img.youtube.com/vi/tSLV19AWfwg/0.jpg)](https://youtu.be/tSLV19AWfwg)
-
+[![Combined Benchmark Figure](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/paper_figure.png)](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/paper_figure.png)
 
 ### Performance scaling
 
@@ -28,11 +24,12 @@ This figure shows how the average simulation time scales the population size (i.
 	
 ![sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png)
 
+
 ### Visualisation
 
-In order to run the visualisation the model must be reconfigured using cmake with the `-DVISUALISATION` option. This will disable the performance scaling experiment so that visualisation is run with the following parameters. The following visualisation is obtained from the visualisation experiment at time step 0.
+In order to run the visualisation the model must be reconfigured using cmake with the `-DVISUALISATION` option. This will disable the performance scaling experiment so that visualisation is run with the following parameters. An example visualisation can be viewed on YouTube. 
 
-![sample/figures/visualisation/screenshot.png](sample/figures/visualisation/screenshot.png)
+[![Sugarscape model visualisation](https://img.youtube.com/vi/tSLV19AWfwg/0.jpg)](https://youtu.be/tSLV19AWfwg)
 
 ## Building and Running the Benchmark
 
@@ -57,7 +54,8 @@ Note: The `FLAMEGPU2_INC_DIR` environment variable may need to be set to `./_dep
 
 ## Plotting Results
 
-Figures can be generated from data in CSV files via a python script.
+Individual figures can be generated from data in CSV files via a python script `plot.py`. Alternatively a combined figure used for publication can be produced using `plot_publication.py`.
+
 
 ### Dependencies
 
@@ -81,5 +79,11 @@ python3 plot.py build -o build/figures
 The sample figures were generated from the root directory using
 
 ```bash
-python3 plot.py sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/data-figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
+python3 plot.py sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
+```
+
+The publication figure was generated using 
+
+```bash
+python plot_publication.py -i sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
 ```

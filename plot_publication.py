@@ -20,10 +20,11 @@ DEFAULT_OUTPUT_DIR = "." #"./sample/figures/v100-470.82.01/alpha.2-v100-11.0-bel
 DEFAULT_VISUALISATION_DIR = "./sample/figures/visualisation"
 
 
-# Drift csv filename from simulation output
+# csv filenamse from simulation output
 RESOLUTION_CSV_FILENAME = "resolution_steps.csv"
 SCALING_CSV_FILENAME = "performance_scaling.csv"
 SCALING_STEP_CSV_FILENAME = "performance_scalingperStep.csv"
+OCCUPATION_STEP_CSV_FILENAME = "occupationperStep.csv"
 
 # Visualisation images used in the figure (4 required)
 VISUALISATION_IMAGE_FILENAMES = ['0.png', '1.png', '50.png']
@@ -31,7 +32,7 @@ POP_COUNT_D_VALUES = [256, 512, 1024, 2048, 4096]
 
 
 
-EXPECTED_INPUT_FILES = [RESOLUTION_CSV_FILENAME, SCALING_CSV_FILENAME, SCALING_STEP_CSV_FILENAME]
+EXPECTED_INPUT_FILES = [RESOLUTION_CSV_FILENAME, SCALING_CSV_FILENAME, SCALING_STEP_CSV_FILENAME, OCCUPATION_STEP_CSV_FILENAME]
 
 def cli():
     parser = argparse.ArgumentParser(description="Python script to generate figure from csv files")
@@ -147,16 +148,16 @@ def main():
     input_dir = pathlib.Path(args.input_dir)
     
     # POP COUNT
-    df = pd.read_csv(input_dir/SCALING_STEP_CSV_FILENAME, sep=',', quotechar='"')
+    df = pd.read_csv(input_dir/OCCUPATION_STEP_CSV_FILENAME, sep=',', quotechar='"')
     df.columns = df.columns.str.strip()
     # Select subset of data for the plot
     df = df[df['grid_width'].isin(POP_COUNT_D_VALUES)]
     # Calculate the pop count as a percentage of the initial expected pop size
-    df['expected_pop_count'] = df['pop_size']*df['p_occupation']
-    df['pop_count_percent'] = df['pop_count'] / df['expected_pop_count'] * 100.0
+    #df['expected_pop_count'] = df['pop_size']*df['p_occupation']
+    #df['pop_count_percent'] = df['pop_count'] / df['expected_pop_count'] * 100.0
     # Plot
-    plot = sns.lineplot(data=df, x='step', y='pop_count_percent', hue='grid_width', ax=ax['p1'], legend='full')
-    plot.set(xlabel='Step', ylabel='N as percent of $N_{init}$')
+    plot = sns.lineplot(data=df, x='step', y='pop_count', hue='p_occupation', ax=ax['p1'], legend='full')
+    plot.set(xlabel='Step', ylabel='N')
     # set formatting
     ax['p1'].set_title(label='A', loc='left', fontweight="bold")
     ax['p1'].legend(title='D')
