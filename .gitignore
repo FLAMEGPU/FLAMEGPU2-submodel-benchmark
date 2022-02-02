@@ -1,3 +1,10 @@
+# Images etc.
+
+*.png
+*.csv
+*.eps
+*.pdf
+
 # Model output files
 *.xml
 *.json
