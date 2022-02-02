@@ -29,11 +29,11 @@
 #define VIS_MODE 1
 
 // Number of steps and repetitions for different expeirments.
-#define VIS_REPETITIONS 3
 #define VIS_STEPS 0
 #define VIS_SEED 0
 #define VIS_SIMULATION_SPEED 2  // Target visualistaion speed
 
+#define BENCHMARK_REPETITIONS 3
 #define BENCHMARK_STEPS 100
 #define BENCHMARK_REPETITIONS 3
 #define BENCHMARK_SEED 0
@@ -308,7 +308,7 @@ int main(int argc, const char** argv) {
     std::vector<Experiment> experiments;
     // For visualisation define only a single execution othger wise describe benchmark experiment
 #ifdef VISUALISATION
-    Experiment visualisationExperiment("visualisation", 256, 256, 256, std::vector<float>({PROBABILITY_OF_OCCUPATION}), VIS_REPETITIONS, VIS_STEPS, false);
+    Experiment visualisationExperiment("visualisation", 256, 256, 256, std::vector<float>({PROBABILITY_OF_OCCUPATION}), BENCHMARK_REPETITIONS, VIS_STEPS, false);
     experiments.push_back(visualisationExperiment);
 #else
     // Performacne scaling experiment to recoprd performance with increase in model size
