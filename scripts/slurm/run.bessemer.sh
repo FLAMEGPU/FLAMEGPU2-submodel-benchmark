@@ -1,12 +1,13 @@
 #!/bin/bash
-# Will need to increase the time for full benchmark runs.... 
 #SBATCH --time=8:00:00
 #SBATCH --partition=dcs-gpu
 #SBATCH --account=dcs-res
 # 1 GPU
 #SBATCH --gres=gpu:1
-# 1 CPU core - might want to increase this + memory to 1/4 of the node per GPU?
-#SBATCH --ntasks=1
+# 1 CPU core
+#SBATCH --cpus-per-task=1
+# 1 GPU's worth of host memory
+#SBATCH --mem=32G
 
 # Load modules (with matching gcc versions)
 module use /usr/local/modulefiles/staging/eb/all/
