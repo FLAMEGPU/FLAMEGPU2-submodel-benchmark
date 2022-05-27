@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=8:00:00
+#SBATCH --time=6:00:00
 #SBATCH --partition=gpu-a100-tmp
 #SBATCH --qos=gpu
 # 1 GPU
