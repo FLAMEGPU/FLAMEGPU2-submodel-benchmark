@@ -316,8 +316,8 @@ int main(int argc, const char** argv) {
     experiments.push_back(performance_scaling);
 
     // Performacne sweep of occupation experiment
-    Experiment performance_scaling("occupation", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f,0.64f }), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
-    experiments.push_back(performance_scaling);
+    Experiment occupation("occupation", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f,0.64f }), BENCHMARK_REPETITIONS, BENCHMARK_STEPS, false);
+    experiments.push_back(occupation);
 
     // Perform resolution experiment
     Experiment resolution_steps("resolution_steps", 512, 512, 512, std::vector<float>({ 0.02f,0.04f,0.08f,0.16f,0.32f,0.64f }), BENCHMARK_REPETITIONS, 3, true);
