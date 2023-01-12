@@ -525,6 +525,8 @@ int main(int argc, const char** argv) {
 #else
                     cudaSimulation.SimulationConfig().random_seed = BENCHMARK_SEED + repetition;
 #endif
+                    // disable telemetry
+                    cudaSimulation.SimulationConfig().telemetry = false;
                     // Apply the configuration, to ensure that the seed will be used as intended.
                     cudaSimulation.applyConfig();
                     if (cudaSimulation.getSimulationConfig().input_file.empty()) {
