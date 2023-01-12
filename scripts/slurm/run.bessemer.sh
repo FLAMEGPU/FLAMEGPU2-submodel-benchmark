@@ -28,4 +28,4 @@ export FLAMEGPU2_INC_DIR=_deps/flamegpu2-src/include
 nvidia-smi
 
 # Run the executable.
-./bin/Release/submodel_benchmark
+./bin/Release/submodel-benchmark

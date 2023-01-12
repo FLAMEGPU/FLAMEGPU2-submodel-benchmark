@@ -31,7 +31,7 @@ cd $PROJECT_ROOT
 mkdir -p build && cd build
 
 # Configure cmake.
-cmake .. -DCUDA_ARCH=80 -DCMAKE_BUILD_TYPE=Release -DSEATBELTS=OFF 
+cmake .. -DCMAKE_CUDA_ARCHITECTURES=80 -DCMAKE_BUILD_TYPE=Release -DFLAMEGPU_SEATBELTS=OFF -DFLAMEGPU_SHARE_USAGE_STATISTICS=OFF 
 
 # Compile the code
 cmake --build . -j `nproc`

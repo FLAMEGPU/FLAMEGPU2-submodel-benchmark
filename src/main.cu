@@ -241,8 +241,8 @@ FLAMEGPU_EXIT_CONDITION(MovementExitCondition) {
 /**
  * Construct the common components of agent shared between both parent and submodel
  */
-flamegpu::AgentDescription& makeCoreAgent(flamegpu::ModelDescription& model) {
-    flamegpu::AgentDescription& agent = model.newAgent("agent");
+flamegpu::AgentDescription makeCoreAgent(flamegpu::ModelDescription &model) {
+    flamegpu::AgentDescription  agent = model.newAgent("agent");
     agent.newVariable<unsigned int, 2>("pos");
     agent.newVariable<int>("agent_id");
     agent.newVariable<int>("status");
@@ -252,7 +252,7 @@ flamegpu::AgentDescription& makeCoreAgent(flamegpu::ModelDescription& model) {
     // environment specific var
     agent.newVariable<int>("env_sugar_level");
     agent.newVariable<int>("env_max_sugar_level");
-#ifdef VISUALISATION
+#ifdef FLAMEGPU_VISUALISATION
     // Redundant seperate floating point position vars for vis
     agent.newVariable<float>("x");
     agent.newVariable<float>("y");
@@ -357,14 +357,14 @@ int main(int argc, const char** argv) {
                          * Messages
                          */
                         {   // cell_status message
-                            flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("cell_status");
+                            flamegpu::MessageArray2D::Description message = submodel.newMessage<flamegpu::MessageArray2D>("cell_status");
                             message.newVariable<flamegpu::id_t>("location_id");
                             message.newVariable<int>("status");
                             message.newVariable<int>("env_sugar_level");
                             message.setDimensions(gridWidth, gridWidth);
                         }
                         {   // movement_request message
-                            flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("movement_request");
+                            flamegpu::MessageArray2D::Description message = submodel.newMessage<flamegpu::MessageArray2D>("movement_request");
                             message.newVariable<int>("agent_id");
                             message.newVariable<flamegpu::id_t>("location_id");
                             message.newVariable<int>("sugar_level");
@@ -372,7 +372,7 @@ int main(int argc, const char** argv) {
                             message.setDimensions(gridWidth, gridWidth);
                         }
                         {   // movement_response message
-                            flamegpu::MessageArray2D::Description& message = submodel.newMessage<flamegpu::MessageArray2D>("movement_response");
+                            flamegpu::MessageArray2D::Description message = submodel.newMessage<flamegpu::MessageArray2D>("movement_response");
                             message.newVariable<flamegpu::id_t>("location_id");
                             message.newVariable<int>("agent_id");
                             message.setDimensions(gridWidth, gridWidth);
@@ -381,22 +381,22 @@ int main(int argc, const char** argv) {
                          * Agents
                          */
                         {
-                            flamegpu::AgentDescription& agent = makeCoreAgent(submodel);
-                            auto& fn_output_cell_status = agent.newFunction("output_cell_status", output_cell_status);
+                            flamegpu::AgentDescription agent = makeCoreAgent(submodel);
+                            auto fn_output_cell_status = agent.newFunction("output_cell_status", output_cell_status);
                             {
                                 fn_output_cell_status.setMessageOutput("cell_status");
                             }
-                            auto& fn_movement_request = agent.newFunction("movement_request", movement_request);
+                            auto fn_movement_request = agent.newFunction("movement_request", movement_request);
                             {
                                 fn_movement_request.setMessageInput("cell_status");
                                 fn_movement_request.setMessageOutput("movement_request");
                             }
-                            auto& fn_movement_response = agent.newFunction("movement_response", movement_response);
+                            auto fn_movement_response = agent.newFunction("movement_response", movement_response);
                             {
                                 fn_movement_response.setMessageInput("movement_request");
                                 fn_movement_response.setMessageOutput("movement_response");
                             }
-                            auto& fn_movement_transaction = agent.newFunction("movement_transaction", movement_transaction);
+                            auto fn_movement_transaction = agent.newFunction("movement_transaction", movement_transaction);
                             {
                                 fn_movement_transaction.setMessageInput("movement_response");
                             }
@@ -413,31 +413,31 @@ int main(int argc, const char** argv) {
                          * Control flow
                          */
                         {   // Layer #1
-                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            flamegpu::LayerDescription layer = submodel.newLayer();
                             layer.addAgentFunction(output_cell_status);
                         }
                         {   // Layer #2
-                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            flamegpu::LayerDescription layer = submodel.newLayer();
                             layer.addAgentFunction(movement_request);
                         }
                         {   // Layer #3
-                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            flamegpu::LayerDescription layer = submodel.newLayer();
                             layer.addAgentFunction(movement_response);
                         }
                         {   // Layer #4
-                            flamegpu::LayerDescription& layer = submodel.newLayer();
+                            flamegpu::LayerDescription layer = submodel.newLayer();
                             layer.addAgentFunction(movement_transaction);
                         }
                         submodel.addExitCondition(MovementExitCondition);
                     }
 
-                    flamegpu::ModelDescription model("submodel_benchmark");
+                    flamegpu::ModelDescription model("submodel-benchmark");
 
                     /**
                      * Agents
                      */
                     {   // Per cell agent
-                        flamegpu::AgentDescription& agent = makeCoreAgent(model);
+                        flamegpu::AgentDescription agent = makeCoreAgent(model);
                         // Functions
                         agent.newFunction("metabolise_and_growback", metabolise_and_growback);
                     }
@@ -445,7 +445,7 @@ int main(int argc, const char** argv) {
                     /**
                      * Submodels
                      */
-                    flamegpu::SubModelDescription& movement_sub = model.newSubModel("movement_conflict_resolution_model", submodel);
+                    flamegpu::SubModelDescription movement_sub = model.newSubModel("movement_conflict_resolution_model", submodel);
                     {
                         movement_sub.bindAgent("agent", "agent", true, true);
                     }
@@ -461,11 +461,11 @@ int main(int argc, const char** argv) {
                      * Control flow
                      */
                     {   // Layer #1
-                        flamegpu::LayerDescription& layer = model.newLayer();
+                        flamegpu::LayerDescription layer = model.newLayer();
                         layer.addAgentFunction(metabolise_and_growback);
                     }
                     {   // Layer #2
-                        flamegpu::LayerDescription& layer = model.newLayer();
+                        flamegpu::LayerDescription layer = model.newLayer();
                         layer.addSubModel(movement_sub);
                     }
 
