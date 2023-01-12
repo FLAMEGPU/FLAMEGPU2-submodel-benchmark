@@ -341,6 +341,9 @@ int main(int argc, const char** argv) {
             csv_step << "repetition,grid_width,pop_size,p_occupation,step,s_step,pop_count" << std::endl;
         }
 
+        // Suppress telemetry encouragement notice 
+        flamegpu::io::Telemetry::suppressNotice();
+
         // number of repitions of experiment
         for (unsigned int repetition = 0; repetition < experiment.repetitions; repetition++) {
             // increment grid width
