@@ -21,9 +21,8 @@ This figure shows how the average simulation time scales the population size (i.
 + Population grid width is stepped between 64 and 4096 at intervals of 64
 + The initial probability of occupation is fixed at 0.17f
 + Simulation timing is measured over 100 steps
-	
-![sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png)
 
+![sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png)
 
 ### Visualisation
 
@@ -48,6 +47,7 @@ cmake --build build -j`nproc`
 cd build
 ./bin/Release/circles-benchmarking 
 ```
+
 This will produce a number of `.csv` files in the `build` directory.
 
 Note: The `FLAMEGPU2_INC_DIR` environment variable may need to be set to `./_deps/flamegpu2-src/include/` for run-time compilation (RTC) to succeed if the source directory is not automatically found.
@@ -55,7 +55,6 @@ Note: The `FLAMEGPU2_INC_DIR` environment variable may need to be set to `./_dep
 ## Plotting Results
 
 Individual figures can be generated from data in CSV files via a python script `plot.py`. Alternatively a combined figure used for publication can be produced using `plot_publication.py`.
-
 
 ### Dependencies
 
@@ -82,7 +81,7 @@ The sample figures were generated from the root directory using
 python3 plot.py sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
 ```
 
-The publication figure was generated using 
+The publication figure was generated using:
 
 ```bash
 python plot_publication.py -i sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
