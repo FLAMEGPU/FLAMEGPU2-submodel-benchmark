@@ -12,7 +12,7 @@ The results below are from the V100 runs on the Bessemer HPC system at the Unive
 
 A combined figure for use in publication is shown below. For details please refer to the publication.
 
-[![Combined Benchmark Figure](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/paper_figure.png)](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/paper_figure.png)
+[![Combined Benchmark Figure](sample/figures/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff/paper_figure.png)](sample/figures/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff/paper_figure.png)
 
 ### Performance scaling
 
@@ -21,9 +21,8 @@ This figure shows how the average simulation time scales the population size (i.
 + Population grid width is stepped between 64 and 4096 at intervals of 64
 + The initial probability of occupation is fixed at 0.17f
 + Simulation timing is measured over 100 steps
-	
-![sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png](sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff/performance--submodel_performance_scaling.png)
 
+![sample/figures/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff/performance--submodel_performance_scaling.png](sample/figures/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff/performance--submodel_performance_scaling.png)
 
 ### Visualisation
 
@@ -33,11 +32,11 @@ In order to run the visualisation the model must be reconfigured using cmake wit
 
 ## Building and Running the Benchmark
 
-Detail of dependencies and the `cmake` build process are described in full in the [FLAMEGPU2-example-template Repo](https://github.com/FLAMEGPU/FLAMEGPU2-example-template) and are not repeated here. The benchmark should be built with seatbelts off (e.g. `-DSEATBELTS=OFF` passed to the `cmake` configuration step) to disable additional run-time checks and optionally disabling Python Swig support which is not needed for this model(-DBUILD_SWIG_PYTHON=OFF ). E.g. for Volta (`SM_70`) GPUs under Linux.
+Detail of dependencies and the `cmake` build process are described in full in the [FLAMEGPU2-example-template Repo](https://github.com/FLAMEGPU/FLAMEGPU2-example-template) and are not repeated here. The benchmark should be built with seatbelts off (e.g. `-DFLAMEGPU_SEATBELTS=OFF` passed to the `cmake` configuration step) to disable additional run-time checks. E.g. for Volta (`SM_70`) GPUs under Linux.
 
-```bash
+```c
 # Configure 
-cmake . -B build -DCMAKE_BUILD_TYPE=Release -DSEATBELTS=OFF -DBUILD_SWIG_PYTHON=OFF -DCUDA_ARCH=70
+cmake . -B build -DCMAKE_BUILD_TYPE=Release -DFLAMEGPU_SEATBELTS=OFF -DCMAKE_CUDA_ARCHITECTURES=70
 # Build
 cmake --build build -j`nproc` 
 ```
@@ -46,8 +45,9 @@ cmake --build build -j`nproc`
 
 ```bash
 cd build
-./bin/Release/circles-benchmarking 
+./bin/Release/submodel-benchmark
 ```
+
 This will produce a number of `.csv` files in the `build` directory.
 
 Note: The `FLAMEGPU2_INC_DIR` environment variable may need to be set to `./_deps/flamegpu2-src/include/` for run-time compilation (RTC) to succeed if the source directory is not automatically found.
@@ -55,7 +55,6 @@ Note: The `FLAMEGPU2_INC_DIR` environment variable may need to be set to `./_dep
 ## Plotting Results
 
 Individual figures can be generated from data in CSV files via a python script `plot.py`. Alternatively a combined figure used for publication can be produced using `plot_publication.py`.
-
 
 ### Dependencies
 
@@ -79,11 +78,11 @@ python3 plot.py build -o build/figures
 The sample figures were generated from the root directory using
 
 ```bash
-python3 plot.py sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
+python3 plot.py sample/data/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff -o sample/figures/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff
 ```
 
-The publication figure was generated using 
+The publication figure was generated using:
 
 ```bash
-python plot_publication.py -i sample/data/v100-470.82.01/alpha.2-v100-11.0-beltsoff -o sample/figures/v100-470.82.01/alpha.2-v100-11.0-beltsoff
+python plot_publication.py -i sample/data/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff -o sample/figures/v100-515.65.01/2.0.0-rc-v100-11.0-beltsoff
 ```
